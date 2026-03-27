@@ -21,7 +21,7 @@ import QuotationExternalDetail from './pages/employee/QuotationExternalDetail'
 import QuotationDataList from './pages/employee/QuotationDataList'
 
 import OAList from './pages/employee/Oalist'
-import OADetail from './pages/employee/OaDetail' 
+import OADetail from './pages/employee/Oadetail' 
 
 import Orders from './pages/employee/Orders'
 import OrderDetail from './pages/employee/OrderDetail'
@@ -66,7 +66,7 @@ import VisitReportFullList from './pages/employee/VisitReportFullList'
 import ManagerVisitReportLanding from './pages/manager/Managervisitreportlanding'
 import ManagerVisitReportFullList from './pages/manager/Managervisitreportfulllist'
 import ManagerVisitReportDetail from './pages/manager/Managervisitreportdetail'
-import VisitReportDetail from './pages/employee/Visitreportdetail'
+import VisitReportDetail from './pages/employee/VisitReportDetail'
 
 
 
