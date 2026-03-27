@@ -51,7 +51,7 @@ import ManagerQuotations from './pages/manager/ManagerQuotations'
 import ManagerQuotationDetail from './pages/manager/ManagerQuotationDetail'
 import ListEnquiry from './pages/employee/ListEnquiry'
 
-import ManagerOADetail from './pages/manager/ManagerOAdetail'
+import ManagerOADetail from './pages/manager/ManagerOadetail'
 import ManagerOAList from './pages/manager/Manageroalist'
 import ManagerOrders from './pages/manager/ManagerOrders'
 import ManagerProformaDetail from './pages/manager/Managerproformadetail'
