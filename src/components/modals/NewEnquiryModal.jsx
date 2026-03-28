@@ -557,7 +557,6 @@ function FileCard({ file, onRemove, active }) {
 // ─── Main Modal ────────────────────────────────────────────────────────────────
 export default function NewEnquiryModal({ open, onClose, onSuccess }) {
   const [step, setStep] = useState(1)
-  const [customers, setCustomers] = useState([])
   const [users, setUsers] = useState([])
   const [files, setFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -603,28 +602,38 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
     emd_return_date: '',
   })
 
-  // Update the reset in useEffect
+  // Update the useEffect in NewEnquiryModal component
   useEffect(() => {
     if (!open) return
+    
     const fetchData = async () => {
       try {
-        const [custRes, usersRes] = await Promise.all([
-          api.get('/customers/'),
-          api.get('/accounts/users/?role=all'),
-        ])
-        setCustomers(custRes.data?.results || custRes.data || [])
+        // Remove the customers fetch - we don't need it since SearchableCustomerSelect handles it
+        const usersRes = await api.get('/accounts/users/?role=all')
         setUsers(usersRes.data || [])
       } catch (error) {
         console.error('Error fetching modal data:', error)
       }
     }
+    
     fetchData()
 
     // Reset all
     setStep(1)
     setFiles([])
     setActiveFileIdx(null)
-    setS1({ customer: '', enquiry_date: today, _poc: '', _email: '', _phone_mobile: '', _phone_landline: '', _country: '', _state: '', _city: '', _address: '' })
+    setS1({ 
+      customer: '', 
+      enquiry_date: today, 
+      _poc: '', 
+      _email: '', 
+      _phone_mobile: '', 
+      _phone_landline: '', 
+      _country: '', 
+      _state: '', 
+      _city: '', 
+      _address: '' 
+    })
     setS2({ 
       subject: '', 
       product_name: '', 
