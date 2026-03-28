@@ -34,6 +34,11 @@ import NotificationsPage   from './pages/employee/NotificationsPage'
 import NotificationDetail  from './pages/employee/NotificationDetail'
 import SendNotification    from './pages/manager/SendNotification'
 
+import OrderList from './pages/employee/OrderList'
+import VisitReportLanding from './pages/employee/Visitreportlanding'
+import VisitReportFullList from './pages/employee/VisitReportFullList'
+import VisitReportDetail from './pages/employee/VisitReportDetail'
+
 
 // Manager pages
 import ManagerDashboard from './pages/manager/ManagerDashboard'
@@ -60,13 +65,11 @@ import ManagerOrderDetail from './pages/manager/Managerorderdetail'
 import PermissionsManager from './pages/manager/PermissionsManager'
 import ManagerQuotationDataList from './pages/manager/ManagerQuotationDataList'
 import ManagerQuotationExternalDetail from './pages/manager/ManagerQuotationExternalDetail'
-import OrderList from './pages/employee/OrderList'
-import VisitReportLanding from './pages/employee/visitreportlanding'
-import VisitReportFullList from './pages/employee/VisitReportFullList'
+
 import ManagerVisitReportLanding from './pages/manager/Managervisitreportlanding'
 import ManagerVisitReportFullList from './pages/manager/Managervisitreportfulllist'
 import ManagerVisitReportDetail from './pages/manager/Managervisitreportdetail'
-import VisitReportDetail from './pages/employee/VisitReportDetail'
+
 
 
 
@@ -126,6 +129,7 @@ const router = createBrowserRouter([
       { path: 'proforma-invoice', element: <ProformaInvoice /> },
       { path: 'proforma-invoices/:id', element: <ProformaDetail /> }, // Changed from 'proforma/:id'
       // Reports
+
       { path: 'reports/visit-reports', element: <VisitReportLanding /> },
       { path: 'reports/visit-reports/:id', element: <VisitReportDetail /> },
       { path: 'reports/visit-reports/all', element: <VisitReportFullList  /> },
