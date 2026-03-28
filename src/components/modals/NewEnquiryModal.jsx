@@ -60,6 +60,8 @@ function Field({ label, children, style }) {
 
 // In NewEnquiryModal.jsx - Update SearchableCustomerSelect component
 
+// In NewEnquiryModal.jsx - Replace the entire SearchableCustomerSelect component with this optimized version
+
 function SearchableCustomerSelect({ value, onChange, placeholder }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -69,47 +71,52 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [initialLoaded, setInitialLoaded] = useState(false) // Track if initial load done
+  
+  // Debounced search term
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   
   const wrapperRef = useRef(null)
   const inputRef = useRef(null)
   const listRef = useRef(null)
   const searchTimeoutRef = useRef(null)
+  
+  const PAGE_SIZE = 20 // Limit to 20 customers per request
 
-  // Load initial customers when dropdown opens
-  const loadInitialCustomers = async () => {
-    if (initialLoaded) return
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+    
+    return () => clearTimeout(searchTimeoutRef.current)
+  }, [searchTerm])
+
+  // Search customers with debounced term - only called when dropdown opens AND there's a search term
+  const searchCustomers = async (query, pg = 1, append = false) => {
+    // Don't search if query is empty and it's the initial load (let loadMore handle empty)
+    if (!query && pg === 1 && !append && customers.length === 0) {
+      // Don't fetch anything initially - wait for user to type
+      return
+    }
     
     setLoading(true)
     try {
       const res = await api.get('/customers/search/', {
-        params: { q: '', page: 1, limit: 20 }
+        params: { 
+          q: query, 
+          page: pg, 
+          limit: PAGE_SIZE,
+          detail: 'true' // Get minimal data for dropdown
+        }
       })
       
-      const newCustomers = res.data.results
-      setHasMore(res.data.has_next)
-      setTotal(res.data.total)
-      setCustomers(newCustomers)
-      setPage(1)
-      setInitialLoaded(true)
-    } catch (error) {
-      console.error('Failed to load initial customers:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Search customers with debounce
-  const searchCustomers = async (query, pg = 1, append = false) => {
-    setLoading(true)
-    try {
-      const res = await api.get('/customers/search/', {
-        params: { q: query, page: pg, limit: 20 }
-      })
-      
-      const newCustomers = res.data.results
-      setHasMore(res.data.has_next)
-      setTotal(res.data.total)
+      const newCustomers = res.data.results || []
+      setHasMore(res.data.has_next || false)
+      setTotal(res.data.total || 0)
       
       if (append) {
         setCustomers(prev => [...prev, ...newCustomers])
@@ -124,48 +131,36 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Debounced search (only when there's a search term)
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-    
-    if (!isOpen) return
-    
-    // If there's a search term, search; otherwise show initial customers
-    if (searchTerm) {
-      searchTimeoutRef.current = setTimeout(() => {
-        searchCustomers(searchTerm, 1, false)
-      }, 300)
-    } else {
-      // Load initial customers when dropdown opens and no search term
-      loadInitialCustomers()
-    }
-    
-    return () => clearTimeout(searchTimeoutRef.current)
-  }, [searchTerm, isOpen])
-
-  // Load more on scroll
+  // Load more customers when scrolling (for both search and empty queries)
   const loadMore = () => {
     if (!loading && hasMore && isOpen) {
-      if (searchTerm) {
-        searchCustomers(searchTerm, page + 1, true)
-      } else {
-        // Load more initial customers
-        setLoading(true)
-        api.get('/customers/search/', {
-          params: { q: '', page: page + 1, limit: 20 }
-        }).then(res => {
-          const newCustomers = res.data.results
-          setHasMore(res.data.has_next)
-          setTotal(res.data.total)
-          setCustomers(prev => [...prev, ...newCustomers])
-          setPage(prev => prev + 1)
-        }).catch(console.error)
-        .finally(() => setLoading(false))
-      }
+      const nextPage = page + 1
+      // Always use the current search term for loading more
+      searchCustomers(debouncedSearchTerm, nextPage, true)
     }
   }
+
+  // Effect to trigger search when debounced term changes AND dropdown is open
+  useEffect(() => {
+    if (!isOpen) return
+    
+    // Reset customers and page when search term changes
+    setCustomers([])
+    setPage(1)
+    setHasMore(false)
+    
+    // Perform search with current debounced term
+    if (debouncedSearchTerm) {
+      searchCustomers(debouncedSearchTerm, 1, false)
+    } else {
+      // If search is empty, don't fetch anything initially
+      // Show empty state prompting user to type
+      setCustomers([])
+      setTotal(0)
+      setHasMore(false)
+      setLoading(false)
+    }
+  }, [debouncedSearchTerm, isOpen])
 
   // Scroll handler for infinite scroll
   const handleScroll = (e) => {
@@ -179,25 +174,36 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
   const handleClose = () => {
     setIsOpen(false)
     setSearchTerm('')
+    setDebouncedSearchTerm('')
     setHighlightedIndex(-1)
-    // Don't reset customers immediately to avoid flicker, but clear initialLoaded flag
-    // so next open loads fresh
-    setInitialLoaded(false)
+    setCustomers([]) // Clear customers to free memory
+    setPage(1)
+    setHasMore(false)
+    setTotal(0)
   }
 
-  // Get selected customer
-  const selectedCustomer = customers.find(c => String(c.id) === value)
+  // Get selected customer info for display
+  const selectedCustomer = useMemo(() => {
+    if (!value) return null
+    // Try to find in current customers list first
+    const found = customers.find(c => String(c.id) === value)
+    if (found) return found
+    // Return a placeholder object if we don't have the full data
+    return null
+  }, [value, customers])
 
   const handleSelect = (customerId, customerData) => {
     onChange(customerId, customerData)
     handleClose()
-    setCustomers([]) // Clear results
   }
 
   const handleKeyDown = (e) => {
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault()
         setIsOpen(true)
+        setSearchTerm('')
+        setDebouncedSearchTerm('')
       }
       return
     }
@@ -208,10 +214,21 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
         setHighlightedIndex(prev => 
           prev < customers.length - 1 ? prev + 1 : prev
         )
+        // Scroll into view
+        if (highlightedIndex + 1 < customers.length) {
+          const listElement = listRef.current
+          const highlightedElement = listElement?.children[highlightedIndex + 1]
+          highlightedElement?.scrollIntoView({ block: 'nearest' })
+        }
         break
       case 'ArrowUp':
         e.preventDefault()
         setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1)
+        if (highlightedIndex - 1 >= 0) {
+          const listElement = listRef.current
+          const highlightedElement = listElement?.children[highlightedIndex - 1]
+          highlightedElement?.scrollIntoView({ block: 'nearest' })
+        }
         break
       case 'Enter':
         e.preventDefault()
@@ -227,11 +244,11 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Style definitions (same as before)
-  const selectBase = {
+  // Style definitions
+  const selectBaseStyle = {
     border: `1px solid ${BORDER}`,
     borderRadius: 7,
-    padding: '12px 14px',
+    padding: '12px 32px 12px 14px', // Extra padding for the arrow
     fontSize: '14px',
     fontFamily: FONT,
     color: TEXT,
@@ -240,6 +257,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     width: '100%',
     boxSizing: 'border-box',
     transition: 'border-color 0.15s',
+    cursor: 'pointer',
   }
 
   const arrowStyle = {
@@ -252,6 +270,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    transition: 'transform 0.2s',
   }
 
   const dropdownStyle = {
@@ -262,22 +281,16 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     background: '#fff',
     border: `1px solid ${BORDER}`,
     borderRadius: 7,
-    maxHeight: 280,
+    maxHeight: 320,
     overflowY: 'auto',
-    zIndex: 10,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  }
-
-  const listStyle = {
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
+    zIndex: 1000,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   }
 
   const listItemStyle = {
-    padding: '10px 14px',
+    padding: '12px 14px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '13px',
     fontFamily: FONT,
     color: TEXT,
     borderBottom: `1px solid ${BORDER}`,
@@ -302,7 +315,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
   }
 
   const emptyStyle = {
-    padding: '20px 14px',
+    padding: '32px 14px',
     textAlign: 'center',
     fontSize: '13px',
     color: '#9ca3af',
@@ -314,8 +327,8 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
       <input
         ref={inputRef}
         type="text"
-        style={selectBase}
-        placeholder={placeholder || 'Type to search or select customer...'}
+        style={selectBaseStyle}
+        placeholder={placeholder || 'Type to search for a customer...'}
         value={isOpen ? searchTerm : (selectedCustomer?.company_name || '')}
         onChange={(e) => {
           setSearchTerm(e.target.value)
@@ -328,6 +341,8 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
         onFocus={() => {
           setIsOpen(true)
           setSearchTerm('')
+          setDebouncedSearchTerm('')
+          setCustomers([]) // Clear previous results
         }}
         onKeyDown={handleKeyDown}
       />
@@ -335,13 +350,20 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
       {/* Dropdown arrow icon */}
       <div
         onClick={() => {
-          setIsOpen(!isOpen)
-          if (!isOpen) {
+          if (isOpen) {
+            handleClose()
+          } else {
+            setIsOpen(true)
             setSearchTerm('')
+            setDebouncedSearchTerm('')
+            setCustomers([])
             inputRef.current?.focus()
           }
         }}
-        style={arrowStyle}
+        style={{
+          ...arrowStyle,
+          transform: isOpen ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%) rotate(0deg)'
+        }}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
           <polyline points="6 9 12 15 18 9" />
@@ -356,7 +378,12 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
           style={dropdownStyle}
         >
           {loading && customers.length === 0 ? (
-            <div style={loadingStyle}>Loading customers...</div>
+            <div style={loadingStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <div style={{ width: 14, height: 14, border: '2px solid #e5e7eb', borderTopColor: PRIMARY, borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+                Searching...
+              </div>
+            </div>
           ) : customers.length > 0 ? (
             <>
               <div style={{ padding: '8px 12px', background: '#f9fafb', borderBottom: `1px solid ${BORDER}` }}>
@@ -364,7 +391,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
                   {total} customer{total !== 1 ? 's' : ''} found
                 </span>
               </div>
-              <ul style={listStyle}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {customers.map((customer, idx) => (
                   <li
                     key={customer.id}
@@ -376,34 +403,48 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
                       borderBottom: idx < customers.length - 1 ? `1px solid ${BORDER}` : 'none',
                     }}
                   >
-                    <div style={{ fontWeight: 500 }}>{customer.company_name}</div>
-                    {customer.customer_code && (
-                      <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 2 }}>
-                        Code: {customer.customer_code}
-                      </div>
-                    )}
-                    {customer.email && (
-                      <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 2 }}>
-                        {customer.email}
-                      </div>
-                    )}
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{customer.company_name}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                      {customer.customer_code && <span>Code: {customer.customer_code}</span>}
+                      {customer.email && (
+                        <>
+                          {customer.customer_code && <span style={{ margin: '0 6px' }}>•</span>}
+                          <span>{customer.email}</span>
+                        </>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
               {loading && customers.length > 0 && (
                 <div style={loadingMoreStyle}>Loading more...</div>
               )}
+              {!hasMore && customers.length > 0 && customers.length < total && (
+                <div style={loadingMoreStyle}>End of results</div>
+              )}
             </>
           ) : searchTerm ? (
-            <div style={emptyStyle}>No customers found</div>
+            <div style={emptyStyle}>
+              No customers found matching "{searchTerm}"
+            </div>
           ) : (
-            <div style={emptyStyle}>Type to search customers</div>
+            <div style={emptyStyle}>
+              Type to search for customers
+            </div>
           )}
         </div>
       )}
+      
+      {/* Add the spin animation style */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
+
 
 // ─── Step Indicator ────────────────────────────────────────────────────────────
 // ─── Step Indicator (Clickable) ────────────────────────────────────────────────
