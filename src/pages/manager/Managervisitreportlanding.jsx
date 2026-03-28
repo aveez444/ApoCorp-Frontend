@@ -3,7 +3,7 @@
 // Usage: import normally in your router
 
 // ── ManagerVisitReportLanding.jsx ──────────────────────────────────────────────
-import VisitReportLanding from '../employee/VisitReportLanding'
+import VisitReportLanding from '../employee/Visitreportlanding'
 
 export default function ManagerVisitReportLanding() {
   return <VisitReportLanding basePath="/manager/reports/visit-reports" />
