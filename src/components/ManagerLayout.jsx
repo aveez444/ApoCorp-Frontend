@@ -13,6 +13,7 @@ const pageTitles = {
   '/manager/orders': 'Orders',
   '/manager/proforma-invoice': 'Proforma Invoice',
   '/manager/reports': 'Reports',
+  '/manager/reports/custom': 'Custom Reports',
 }
 
 export default function ManagerLayout() {

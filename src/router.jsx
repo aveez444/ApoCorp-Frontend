@@ -38,6 +38,7 @@ import OrderList from './pages/employee/OrderList'
 import VisitReportLanding from './pages/employee/Visitreportlanding'
 import VisitReportFullList from './pages/employee/VisitReportFullList'
 import VisitReportDetail from './pages/employee/VisitReportDetail'
+import CustomReports from './pages/shared/CustomReports'
 
 
 // Manager pages
@@ -69,6 +70,7 @@ import ManagerQuotationExternalDetail from './pages/manager/ManagerQuotationExte
 import ManagerVisitReportLanding from './pages/manager/Managervisitreportlanding'
 import ManagerVisitReportFullList from './pages/manager/Managervisitreportfulllist'
 import ManagerVisitReportDetail from './pages/manager/Managervisitreportdetail'
+
 
 
 
@@ -133,9 +135,9 @@ const router = createBrowserRouter([
       { path: 'reports/visit-reports', element: <VisitReportLanding /> },
       { path: 'reports/visit-reports/:id', element: <VisitReportDetail /> },
       { path: 'reports/visit-reports/all', element: <VisitReportFullList  /> },
-
+      { path: 'reports/custom', element: <CustomReports role="employee"/> },
+  
      
-
       // Notifications
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'notifications/:id', element: <NotificationDetail /> },
@@ -190,6 +192,7 @@ const router = createBrowserRouter([
       { path: 'reports/visit-reports', element: <ManagerVisitReportLanding /> },
       { path: 'reports/visit-reports/all', element: <ManagerVisitReportFullList  /> },
       { path: 'reports/visit-reports/:id', element: <ManagerVisitReportDetail /> },
+      { path: 'reports/custom', element: <CustomReports role="manager" /> },
 
     
 

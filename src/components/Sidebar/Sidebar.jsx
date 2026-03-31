@@ -75,7 +75,7 @@ const employeeNavItems = [
       </svg>
     ),
     children: [
-      { label: 'Reports',      path: '/employee/reports/all' },
+      { label: 'Reports',      path: '/employee/reports/custom' },
       { label: 'Visit Reports', path: '/employee/reports/visit-reports' },
     ]
   },
@@ -162,7 +162,7 @@ const managerNavItems = [
       </svg>
     ),
     children: [
-      { label: 'Reports',      path: '/manager/reports/all' },
+      { label: 'Reports',      path: '/manager/reports/custom' },
       { label: 'Visit Reports', path: '/manager/reports/visit-reports' },
     ]
   },

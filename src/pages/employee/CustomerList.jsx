@@ -241,8 +241,7 @@ export default function CustomerList({ basePath = '/employee/customers' }) {
           </h1>
         </div>
         <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => window.print()} style={outlineBtn}><Icon d={ic.print} size={14} color="#6b7280" /> Print</button>
-          <button onClick={handleExport}         style={outlineBtn}><Icon d={ic.export} size={14} color="#6b7280" /> Export to Excel</button>
+        
           <button onClick={() => navigate(`${basePath}/new`)} style={addBtn}>
             <Icon d={ic.plus} size={14} color="#fff" /> Add New Customer
           </button>

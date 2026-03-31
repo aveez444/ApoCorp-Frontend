@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import NewEnquiryModal from '../../components/modals/NewEnquiryModal'
@@ -166,6 +166,7 @@ export default function ManagerEnquiries() {
   const [locationFilter,setLocationFilter]= useState('')
   const [dateFilter,    setDateFilter]    = useState('')
   const [statusFilter,  setStatusFilter]  = useState('')
+  const [createdByFilter, setCreatedByFilter] = useState('') // New filter for created by
   const [showFilters,   setShowFilters]   = useState(false)
 
   const fetchAll = useCallback(() => {
@@ -198,20 +199,42 @@ export default function ManagerEnquiries() {
     return empMap[assignedTo] || empMap[String(assignedTo)] || '—'
   }
 
-  // In ManagerEnquiries.jsx, replace the filtered constant (around line 170-180) with:
+  const getCreatedByName = (enquiry) => {
+    // Use created_by_name from API if available
+    if (enquiry.created_by_name) {
+      return enquiry.created_by_name
+    }
+    // Fallback to mapping from empMap
+    if (enquiry.created_by) {
+      return empMap[enquiry.created_by] || empMap[String(enquiry.created_by)] || '—'
+    }
+    return '—'
+  }
+
+  // Get unique list of creators for dropdown
+  const creatorsList = useMemo(() => {
+    const creators = new Set()
+    enquiries.forEach(enquiry => {
+      const creatorName = getCreatedByName(enquiry)
+      if (creatorName !== '—') {
+        creators.add(creatorName)
+      }
+    })
+    return Array.from(creators).sort()
+  }, [enquiries, empMap])
 
   const filtered = enquiries
     .filter(e => {
       const q   = search.toLowerCase()
-      const cs  = e.customer_snapshot || {}
+      const cs  = e.customer_detail || e.customer_snapshot || {}
       const loc = locationFilter.toLowerCase()
       const matchSearch   = !search        || (e.enquiry_number || '').toLowerCase().includes(q) || (cs.company_name || '').toLowerCase().includes(q)
       const matchLocation = !locationFilter|| (cs.city || '').toLowerCase().includes(loc) || (cs.state || '').toLowerCase().includes(loc) || (cs.country || '').toLowerCase().includes(loc)
       const matchDate     = !dateFilter    || e.enquiry_date === dateFilter
       const matchStatus   = !statusFilter  || e.status === statusFilter
-      return matchSearch && matchLocation && matchDate && matchStatus
+      const matchCreatedBy = !createdByFilter || getCreatedByName(e) === createdByFilter
+      return matchSearch && matchLocation && matchDate && matchStatus && matchCreatedBy
     })
-    // Add sorting by created_at descending (newest first)
     .sort((a, b) => {
       if (!a.created_at && !b.created_at) return 0
       if (!a.created_at) return 1
@@ -219,17 +242,17 @@ export default function ManagerEnquiries() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
-
   const handleExport = () => {
-    const headers = ['Enquiry #','Date','Target Date','Entity Name','Status','Sales Rep','Value','Source','Days','Priority','Phone','Type','Location']
+    const headers = ['Enquiry #','Date','Target Date','Entity Name','Status','Sales Rep','Created By','Value','Source','Days','Priority','Phone','Type','Location']
     const rows = filtered.map(e => {
-      const cs = e.customer_snapshot || {}
+      const cs = e.customer_detail || e.customer_snapshot || {}
       return [
         e.enquiry_number || '', e.enquiry_date || '', e.target_submission_date || '',
         cs.company_name || '', e.status || '', getSalesRep(e.assigned_to),
+        getCreatedByName(e),
         e.prospective_value ? `${e.currency || 'INR'} ${e.prospective_value}` : '',
         e.source_of_enquiry || '', daysSince(e.last_activity_at) ?? '—',
-        e.priority || '—', cs.phone || '', e.enquiry_type || '',
+        e.priority || '—', cs.phone || cs.telephone_primary || '', e.enquiry_type || '',
         [cs.city, cs.state, cs.country].filter(Boolean).join(', '),
       ]
     })
@@ -242,7 +265,7 @@ export default function ManagerEnquiries() {
 
   const statCards = [
     { label: 'Pending Enquiry',   value: stats?.pending ?? '—',             trend: 'up',   trendLabel: '5% Increment since past week' },
-    { label: 'Quoted Enquiry',    value: stats?.po_received ?? '—' },
+    { label: 'Quoted Enquiry',    value: stats?.quoted ?? '—' },
     { label: 'Under Negotiation', value: stats?.under_negotiation ?? '—' },
     {
       label: 'Enquiry Lost',
@@ -327,6 +350,25 @@ export default function ManagerEnquiries() {
         }
         tbody td:last-child  { border-right: none; }
         tbody tr:last-child td { border-bottom: none; }
+        
+        .filter-select {
+          border: 1.5px solid ${BORDER};
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 13px;
+          font-family: ${FONT};
+          width: 100%;
+          background: #fff;
+          color: #1e293b;
+          outline: none;
+          cursor: pointer;
+          transition: border-color 0.15s, box-shadow 0.15s;
+          box-sizing: border-box;
+        }
+        .filter-select:focus {
+          border-color: ${PRIMARY};
+          box-shadow: 0 0 0 3px rgba(18,44,65,0.08);
+        }
       `}</style>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
@@ -386,7 +428,6 @@ export default function ManagerEnquiries() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: PRIMARY }}>Enquiry Stats</h3>
-            {/* clicking the icon navigates to the full list page */}
             <button
               onClick={() => navigate('/manager/enquiries/all')}
               title="View all enquiries"
@@ -462,47 +503,85 @@ export default function ManagerEnquiries() {
         {/* Filter panel */}
         {showFilters && (
           <div style={{
-            display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+            display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
             padding: '12px 16px', background: '#f8fafc',
             border: `1px solid ${BORDER}`, borderRadius: 9, marginBottom: 14,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginRight: 4 }}>Status:</span>
-            {[['', 'All'], ['NEW', 'New'], ['NEGOTIATION', 'Negotiation'], ['PO_RECEIVED', 'PO Received'], ['LOST', 'Lost'], ['REGRET', 'Regret']].map(([val, lbl]) => (
-              <button
-                key={val}
-                onClick={() => setStatusFilter(val)}
-                style={{
-                  padding: '4px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: FONT,
-                  border: `1px solid ${statusFilter === val ? PRIMARY : BORDER}`,
-                  background: statusFilter === val ? PRIMARY : '#fff',
-                  color: statusFilter === val ? '#fff' : '#374151',
-                  fontSize: 12, fontWeight: 500, transition: 'all 0.15s',
-                }}
-              >{lbl}</button>
-            ))}
+            <div style={{ minWidth: 150 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginRight: 8 }}>Status:</span>
+              <select
+                className="filter-select"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                style={{ width: 'auto', minWidth: 140, display: 'inline-block', marginLeft: 8 }}
+              >
+                <option value="">All Statuses</option>
+                <option value="NEW">New Enquiry</option>
+                <option value="PENDING">Pending Enquiry</option>
+                <option value="NEGOTIATION">Under Negotiation</option>
+                <option value="QUOTED">Quoted Enquiry</option>
+                <option value="PO_RECEIVED">PO Received</option>
+                <option value="LOST">Enquiry Lost</option>
+                <option value="REGRET">Regret</option>
+              </select>
+            </div>
+            
+            <div style={{ minWidth: 150 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginRight: 8 }}>Created By:</span>
+              <select
+                className="filter-select"
+                value={createdByFilter}
+                onChange={e => setCreatedByFilter(e.target.value)}
+                style={{ width: 'auto', minWidth: 140, display: 'inline-block', marginLeft: 8 }}
+              >
+                <option value="">All Users</option>
+                {creatorsList.map(creator => (
+                  <option key={creator} value={creator}>{creator}</option>
+                ))}
+              </select>
+            </div>
+            
             <button
-              onClick={() => { setStatusFilter(''); setLocationFilter(''); setDateFilter(''); setSearch('') }}
-              style={{ padding: '4px 14px', borderRadius: 20, border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: FONT, marginLeft: 4 }}
+              onClick={() => { setStatusFilter(''); setCreatedByFilter(''); setLocationFilter(''); setDateFilter(''); setSearch('') }}
+              style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: FONT }}
             >
               Clear All
             </button>
           </div>
         )}
 
-        {/* Active status chip */}
-        {statusFilter && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#eff6ff', color: PRIMARY,
-              padding: '4px 12px', borderRadius: 20,
-              fontSize: 12, fontWeight: 500, border: `1px solid #bfdbfe`,
-            }}>
-              {STATUS_LABELS[statusFilter] || statusFilter}
-              <button onClick={() => setStatusFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-            </span>
+        {/* Active filters chips */}
+        {(statusFilter || createdByFilter) && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            {statusFilter && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#eff6ff', color: PRIMARY,
+                padding: '4px 12px', borderRadius: 20,
+                fontSize: 12, fontWeight: 500, border: `1px solid #bfdbfe`,
+              }}>
+                Status: {STATUS_LABELS[statusFilter] || statusFilter}
+                <button onClick={() => setStatusFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+              </span>
+            )}
+            {createdByFilter && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#eff6ff', color: PRIMARY,
+                padding: '4px 12px', borderRadius: 20,
+                fontSize: 12, fontWeight: 500, border: `1px solid #bfdbfe`,
+              }}>
+                Created By: {createdByFilter}
+                <button onClick={() => setCreatedByFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+              </span>
+            )}
           </div>
         )}
+
+        {/* Results count */}
+        <div style={{ marginBottom: 12, fontSize: 13, color: '#64748b' }}>
+          Showing {filtered.length} of {enquiries.length} enquiries
+        </div>
 
         {/* Table */}
         <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${BORDER}` }}>
@@ -511,7 +590,7 @@ export default function ManagerEnquiries() {
               <tr>
                 {[
                   'Enquiry Number','Date','Target Date','Entity Name','Status',
-                  'Sales Rep','Prospective Value','Source','Days Since Activity',
+                  'Sales Rep','Created By','Prospective Value','Source','Days Since Activity',
                   'Priority','Phone (Mobile)','Enq. Type','Location',
                 ].map(h => <th key={h}>{h}</th>)}
               </tr>
@@ -519,7 +598,7 @@ export default function ManagerEnquiries() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={13} style={{ padding: 48, textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={14} style={{ padding: 48, textAlign: 'center', color: '#94a3b8' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                       <Spinner /> Loading...
                     </div>
@@ -528,7 +607,7 @@ export default function ManagerEnquiries() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                  <td colSpan={14} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                     No enquiries found.
                     <br />
                     <button onClick={() => setShowModal(true)} style={{ marginTop: 8, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 13, fontFamily: FONT }}>
@@ -538,32 +617,34 @@ export default function ManagerEnquiries() {
                 </tr>
               ) : (
                 filtered.map(enq => {
-                  const cs   = enq.customer_snapshot || {}
+                  const cs   = enq.customer_detail || enq.customer_snapshot || {}
                   const loc  = [cs.city, cs.state, cs.country].filter(Boolean).join(', ')
                   const days = daysSince(enq.last_activity_at)
+                  const companyName = cs.company_name || cs.entity_name || '—'
                   return (
                     <tr key={enq.id} className="enq-row" onClick={() => navigate(`/manager/enquiries/${enq.id}`)}>
                       <td style={{ fontWeight: 600, color: PRIMARY }}>{enq.enquiry_number}</td>
                       <td>{formatDate(enq.enquiry_date)}</td>
                       <td>{formatDate(enq.target_submission_date)}</td>
-                      <td>{cs.company_name || '—'}</td>
+                      <td>{companyName}</td>
                       <td><StatusBadge status={enq.status} /></td>
                       <td>{getSalesRep(enq.assigned_to)}</td>
+                      <td>{getCreatedByName(enq)}</td>
                       <td style={{ fontWeight: 500 }}>
                         {enq.prospective_value ? `${enq.currency || 'INR'} ${Number(enq.prospective_value).toLocaleString('en-IN')}` : '—'}
                       </td>
                       <td>{enq.source_of_enquiry || '—'}</td>
                       <td style={{ textAlign: 'center' }}><DaysBadge days={days} /></td>
                       <td style={{ textAlign: 'center' }}><PriorityFlags priority={enq.priority} /></td>
-                      <td>{cs.phone || '—'}</td>
+                      <td>{cs.phone || cs.telephone_primary || '—'}</td>
                       <td>{enq.enquiry_type || '—'}</td>
                       <td>{loc || '—'}</td>
-                    </tr>
+                     </tr>
                   )
                 })
               )}
             </tbody>
-          </table>
+           </table>
         </div>
       </div>
 

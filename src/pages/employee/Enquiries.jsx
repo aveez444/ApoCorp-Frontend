@@ -31,6 +31,16 @@ const STATUS_LABELS = {
   REGRET:      "Regret"
 }
 
+// Status options for filter dropdown
+const STATUS_OPTIONS = [
+  { value: "", label: "All Statuses" },
+  { value: "NEW", label: "New Enquiry" },
+  { value: "NEGOTIATION", label: "Under Negotiation" },
+  { value: "PO_RECEIVED", label: "PO Received" },
+  { value: "LOST", label: "Enquiry Lost" },
+  { value: "REGRET", label: "Regret" }
+]
+
 function StatusBadge({ status }) {
   const s = STATUS_COLORS[status] || { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", border: "#e2e8f0" }
   return (
@@ -111,6 +121,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
   const [search, setSearch] = useState("")
   const [location, setLocation] = useState("")
   const [date, setDate] = useState("")
+  const [status, setStatus] = useState("") // New status filter state
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -127,7 +138,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Filtered enquiries based on search inputs
+  // Filtered enquiries based on search inputs and status
   const filteredEnquiries = useMemo(() => {
     // First filter
     const filtered = enquiries.filter(enquiry => {
@@ -146,8 +157,11 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
       const matchesLocation = locationTerm === "" || enquiryLocation.includes(locationTerm)
 
       const matchesDate = date === "" || enquiry.enquiry_date === date
+      
+      // Status filter
+      const matchesStatus = status === "" || enquiry.status === status
 
-      return matchesSearch && matchesLocation && matchesDate
+      return matchesSearch && matchesLocation && matchesDate && matchesStatus
     })
 
     // Sort by created_at descending (newest first)
@@ -157,7 +171,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
       if (!b.created_at) return -1
       return new Date(b.created_at) - new Date(a.created_at)
     })
-  }, [enquiries, search, location, date])
+  }, [enquiries, search, location, date, status])
 
   // Preview first 8 filtered enquiries
   const preview = useMemo(() => {
@@ -169,6 +183,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
     setSearch("")
     setLocation("")
     setDate("")
+    setStatus("")
   }
 
   const statCards = [
@@ -337,6 +352,25 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
         }
 
         tbody tr:last-child td { border-bottom: none; }
+        
+        .status-select {
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 13px;
+          font-family: ${FONT};
+          width: 100%;
+          background: #fff;
+          color: #1e293b;
+          outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
+          cursor: pointer;
+          box-sizing: border-box;
+        }
+        .status-select:focus {
+          border-color: #122C41;
+          box-shadow: 0 0 0 3px rgba(18,44,65,0.08);
+        }
       `}</style>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
@@ -463,7 +497,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
         {/* SEARCH ROW */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "2fr 1.5fr 1fr auto auto",
+          gridTemplateColumns: "2fr 1.5fr 1fr 1fr auto auto",
           gap: 12,
           marginBottom: 16,
           alignItems: "end"
@@ -495,6 +529,20 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
               onChange={e => setDate(e.target.value)}
             />
           </div>
+          <div style={{ position: "relative" }}>
+            <span className="filter-label">Status</span>
+            <select
+              className="status-select"
+              value={status}
+              onChange={e => setStatus(e.target.value)}
+            >
+              {STATUS_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button 
             className="btn-primary"
             onClick={() => {}} // Filters are applied automatically via useMemo
@@ -517,7 +565,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
         </div>
 
         {/* Active Filters Display */}
-        {(search || location || date) && (
+        {(search || location || date || status) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {search && (
               <span className="tag-chip">
@@ -535,6 +583,12 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
               <span className="tag-chip">
                 Date: {date}
                 <button onClick={() => setDate("")}>×</button>
+              </span>
+            )}
+            {status && (
+              <span className="tag-chip">
+                Status: {STATUS_LABELS[status]}
+                <button onClick={() => setStatus("")}>×</button>
               </span>
             )}
           </div>

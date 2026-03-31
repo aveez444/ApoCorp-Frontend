@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
@@ -6,7 +6,9 @@ import NewEnquiryModal from '../../components/modals/NewEnquiryModal'
 
 const STATUS_COLORS = {
   'NEW':         { bg: '#E2F1FF', color: '#1E88E5', dot: '#1E88E5', label: 'New Enquiry' },
+  'PENDING':     { bg: '#FFF6E5', color: '#F39C12', dot: '#F39C12', label: 'Pending Enquiry' },
   'NEGOTIATION': { bg: '#FAE7FF', color: '#8E24AA', dot: '#8E24AA', label: 'Under Negotiation' },
+  'QUOTED':      { bg: '#E8F5E9', color: '#43A047', dot: '#43A047', label: 'Quoted Enquiry' },
   'PO_RECEIVED': { bg: '#EEFFEE', color: '#43A047', dot: '#43A047', label: 'PO Received' },
   'LOST':        { bg: '#FFF5F5', color: '#E53935', dot: '#E53935', label: 'Enquiry Lost' },
   'REGRET':      { bg: '#FFF6EB', color: '#FB8C00', dot: '#FB8C00', label: 'Regret' },
@@ -83,7 +85,7 @@ const primaryBtn = {
 const TABLE_HEADERS = [
   'Enquiry Number', 'Date', 'Target Date Submission', 'Entity Name',
   'Prospective Value', 'Phone (Mobile)', 'Enq. Type', 'Status',
-  'Sales Rep', 'Priority', 'Source of Enquiry', 'Location', 'Days Since Activity',
+  'Sales Rep', 'Created By', 'Priority', 'Source of Enquiry', 'Location', 'Days Since Activity',
 ]
 
 // ── Helper function to get sales rep name ────────────────────────────────────
@@ -93,6 +95,16 @@ function getSalesRepName(enquiry, usersMap = {}) {
   }
   if (enquiry.assigned_to) {
     return usersMap[enquiry.assigned_to] || `User ${enquiry.assigned_to}`;
+  }
+  return '—';
+}
+
+function getCreatedByName(enquiry, usersMap = {}) {
+  if (enquiry.created_by_name) {
+    return enquiry.created_by_name;
+  }
+  if (enquiry.created_by) {
+    return usersMap[enquiry.created_by] || `User ${enquiry.created_by}`;
   }
   return '—';
 }
@@ -107,16 +119,14 @@ export default function ManagerEnquiryAllList() {
   const [location, setLocation] = useState('')
   const [date, setDate] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterCreatedBy, setFilterCreatedBy] = useState('') // New filter
   const [showFilters, setShowFilters] = useState(false)
   const [users, setUsers] = useState({}) // Cache for user names
-  const [employees, setEmployees] = useState([]) // For dropdown if needed
 
   const fetchEmployees = useCallback(() => {
     api.get('/accounts/tenant/employees/')
       .then(res => {
         const empData = res.data || [];
-        setEmployees(empData);
-        
         // Create a map of user IDs to usernames
         const userMap = {};
         empData.forEach(emp => {
@@ -140,21 +150,37 @@ export default function ManagerEnquiryAllList() {
 
   useEffect(() => { 
     fetchAll(); 
-    fetchEmployees(); // Fetch employees for name mapping
+    fetchEmployees();
   }, [fetchAll, fetchEmployees])
 
-  // In ManagerEnquiryAllList.jsx, replace the filtered constant with:
+  // Get unique list of creators for dropdown
+  const creatorsList = useMemo(() => {
+    const creators = new Set()
+    enquiries.forEach(enquiry => {
+      const creatorName = getCreatedByName(enquiry, users)
+      if (creatorName !== '—') {
+        creators.add(creatorName)
+      }
+    })
+    return Array.from(creators).sort()
+  }, [enquiries, users])
 
   const filtered = enquiries
     .filter(e => {
+      const cs = e.customer_detail || {}
       const q = search.toLowerCase()
-      const matchSearch = !search || e.enquiry_number?.toLowerCase().includes(q) || e.customer_name_snapshot?.toLowerCase().includes(q)
-      const matchLocation = !location || e.customer_city_snapshot?.toLowerCase().includes(location.toLowerCase())
+      const matchSearch = !search || 
+        e.enquiry_number?.toLowerCase().includes(q) || 
+        cs.company_name?.toLowerCase().includes(q)
+      const matchLocation = !location || 
+        cs.city?.toLowerCase().includes(location.toLowerCase()) ||
+        cs.state?.toLowerCase().includes(location.toLowerCase()) ||
+        cs.country?.toLowerCase().includes(location.toLowerCase())
       const matchDate = !date || e.enquiry_date === date
       const matchStatus = !filterStatus || e.status === filterStatus
-      return matchSearch && matchLocation && matchDate && matchStatus
+      const matchCreatedBy = !filterCreatedBy || getCreatedByName(e, users) === filterCreatedBy
+      return matchSearch && matchLocation && matchDate && matchStatus && matchCreatedBy
     })
-    // Add sorting by created_at descending (newest first)
     .sort((a, b) => {
       if (!a.created_at && !b.created_at) return 0
       if (!a.created_at) return 1
@@ -164,17 +190,24 @@ export default function ManagerEnquiryAllList() {
 
   const handleExport = () => {
     const headers = TABLE_HEADERS
-    const rows = filtered.map(e => [
-      e.enquiry_number, e.enquiry_date, e.target_submission_date,
-      e.customer_name_snapshot,
-      e.prospective_value ? `${e.currency || 'INR'} ${e.prospective_value}` : '',
-      e.customer_mobile_snapshot, e.enquiry_type, e.status,
-      getSalesRepName(e, users),
-      e.priority,
-      e.source_of_enquiry,
-      [e.customer_city_snapshot, e.customer_state_snapshot, e.customer_country_snapshot].filter(Boolean).join(', '),
-      e.days_since_activity ?? '',
-    ].map(v => v || ''))
+    const rows = filtered.map(e => {
+      const cs = e.customer_detail || {}
+      const companyName = cs.company_name || cs.entity_name || '—'
+      const locationStr = [cs.city, cs.state, cs.country].filter(Boolean).join(', ') || '—'
+      return [
+        e.enquiry_number, e.enquiry_date, e.target_submission_date,
+        companyName,
+        e.prospective_value ? `${e.currency || 'INR'} ${e.prospective_value}` : '',
+        cs.phone || cs.telephone_primary || '',
+        e.enquiry_type, e.status,
+        getSalesRepName(e, users),
+        getCreatedByName(e, users),
+        e.priority,
+        e.source_of_enquiry,
+        locationStr,
+        e.days_since_activity ?? '',
+      ].map(v => v || '')
+    })
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'all-enquiries.csv'; a.click()
@@ -239,19 +272,75 @@ export default function ManagerEnquiryAllList() {
         </button>
       </div>
 
-      {/* Filter chips */}
+      {/* Filter panel */}
       {showFilters && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', fontFamily: 'Lato, sans-serif' }}>Status:</span>
-          {[['', 'All'], ['NEW', 'New Enquiry'], ['NEGOTIATION', 'Negotiation'], ['PO_RECEIVED', 'PO Received'], ['LOST', 'Lost'], ['REGRET', 'Regret']].map(([val, label]) => (
-            <button key={val} onClick={() => setFilterStatus(val)} style={{
-              padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'Lato, sans-serif',
-              border: `1px solid ${filterStatus === val ? '#122C41' : '#d1d5db'}`,
-              background: filterStatus === val ? '#122C41' : '#fff',
-              color: filterStatus === val ? '#fff' : '#374151',
-              fontSize: '12px', fontWeight: 600,
-            }}>{label}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, flexWrap: 'wrap' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', fontFamily: 'Lato, sans-serif', marginRight: 8 }}>Status:</span>
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '12px', fontFamily: 'Lato, sans-serif' }}
+            >
+              <option value="">All</option>
+              <option value="NEW">New Enquiry</option>
+              <option value="PENDING">Pending Enquiry</option>
+              <option value="NEGOTIATION">Under Negotiation</option>
+              <option value="QUOTED">Quoted Enquiry</option>
+              <option value="PO_RECEIVED">PO Received</option>
+              <option value="LOST">Enquiry Lost</option>
+              <option value="REGRET">Regret</option>
+            </select>
+          </div>
+          
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', fontFamily: 'Lato, sans-serif', marginRight: 8 }}>Created By:</span>
+            <select
+              value={filterCreatedBy}
+              onChange={e => setFilterCreatedBy(e.target.value)}
+              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '12px', fontFamily: 'Lato, sans-serif' }}
+            >
+              <option value="">All Users</option>
+              {creatorsList.map(creator => (
+                <option key={creator} value={creator}>{creator}</option>
+              ))}
+            </select>
+          </div>
+          
+          <button
+            onClick={() => { setFilterStatus(''); setFilterCreatedBy(''); setLocation(''); setDate(''); setSearch('') }}
+            style={{ padding: '4px 12px', borderRadius: 20, border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'Lato, sans-serif' }}
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* Active filters chips */}
+      {(filterStatus || filterCreatedBy) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {filterStatus && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#eff6ff', color: '#122C41',
+              padding: '4px 12px', borderRadius: 20,
+              fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe',
+            }}>
+              Status: {STATUS_COLORS[filterStatus]?.label || filterStatus}
+              <button onClick={() => setFilterStatus('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+          {filterCreatedBy && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#eff6ff', color: '#122C41',
+              padding: '4px 12px', borderRadius: 20,
+              fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe',
+            }}>
+              Created By: {filterCreatedBy}
+              <button onClick={() => setFilterCreatedBy('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
         </div>
       )}
 
@@ -262,7 +351,7 @@ export default function ManagerEnquiryAllList() {
             <thead>
               <tr style={{ background: '#122C41' }}>
                 {TABLE_HEADERS.map(h => <th key={h} style={thStyle}>{h}</th>)}
-              </tr>
+               </tr>
             </thead>
             <tbody>
               {loading ? (
@@ -271,8 +360,11 @@ export default function ManagerEnquiryAllList() {
                 <tr><td colSpan={TABLE_HEADERS.length} style={{ padding: '52px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', fontFamily: 'Lato, sans-serif' }}>No enquiries found.</td></tr>
               ) : (
                 filtered.map((enq, i) => {
-                  const loc = [enq.customer_city_snapshot, enq.customer_state_snapshot, enq.customer_country_snapshot].filter(Boolean).join(', ')
+                  const cs = enq.customer_detail || {}
+                  const companyName = cs.company_name || cs.entity_name || '—'
+                  const locationStr = [cs.city, cs.state, cs.country].filter(Boolean).join(', ') || '—'
                   const salesRepName = enq.assigned_to_name || users[enq.assigned_to] || (enq.assigned_to ? `User ${enq.assigned_to}` : '—');
+                  const createdByName = enq.created_by_name || users[enq.created_by] || (enq.created_by ? `User ${enq.created_by}` : '—');
                   
                   return (
                     <tr
@@ -285,15 +377,16 @@ export default function ManagerEnquiryAllList() {
                       <td style={{ ...tdStyle, color: '#122C41', fontWeight: 700 }}>{enq.enquiry_number}</td>
                       <td style={tdStyle}>{enq.enquiry_date || '—'}</td>
                       <td style={tdStyle}>{enq.target_submission_date || '—'}</td>
-                      <td style={tdStyle}>{enq.customer_name_snapshot || '—'}</td>
+                      <td style={tdStyle}>{companyName}</td>
                       <td style={tdStyle}>{enq.prospective_value ? `${enq.currency || 'INR'} ${Number(enq.prospective_value).toLocaleString('en-IN')}` : '—'}</td>
-                      <td style={tdStyle}>{enq.customer_mobile_snapshot || '—'}</td>
+                      <td style={tdStyle}>{cs.phone || cs.telephone_primary || '—'}</td>
                       <td style={tdStyle}>{enq.enquiry_type || '—'}</td>
                       <td style={tdStyle}><StatusBadge status={enq.status} /></td>
                       <td style={tdStyle}>{salesRepName}</td>
+                      <td style={tdStyle}>{createdByName}</td>
                       <td style={tdStyle}><PriorityFlags priority={enq.priority} /></td>
                       <td style={tdStyle}>{enq.source_of_enquiry || '—'}</td>
-                      <td style={tdStyle}>{loc || '—'}</td>
+                      <td style={tdStyle}>{locationStr}</td>
                       <td style={{ ...tdStyle, borderRight: 'none', textAlign: 'center' }}>{enq.days_since_activity ?? '—'}</td>
                     </tr>
                   )

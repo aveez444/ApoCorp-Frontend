@@ -57,24 +57,30 @@ function Field({ label, children, style }) {
     </div>
   )
 }
-
-// In NewEnquiryModal.jsx - Update SearchableCustomerSelect component
-
 function SearchableCustomerSelect({ value, onChange, placeholder }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [customers, setCustomers] = useState([])
+  const [selectedCustomerObj, setSelectedCustomerObj] = useState(null) // Store selected customer object
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [initialLoaded, setInitialLoaded] = useState(false) // Track if initial load done
+  const [initialLoaded, setInitialLoaded] = useState(false)
   
   const wrapperRef = useRef(null)
   const inputRef = useRef(null)
   const listRef = useRef(null)
   const searchTimeoutRef = useRef(null)
+
+  // Update selectedCustomerObj when value prop changes from parent
+  useEffect(() => {
+    if (value && !selectedCustomerObj) {
+      // If we have a value but no selected object, we might need to fetch it
+      // But for now, we'll rely on the object being passed from selection
+    }
+  }, [value, selectedCustomerObj])
 
   // Load initial customers when dropdown opens
   const loadInitialCustomers = async () => {
@@ -124,7 +130,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Debounced search (only when there's a search term)
+  // Debounced search
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -132,13 +138,11 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     
     if (!isOpen) return
     
-    // If there's a search term, search; otherwise show initial customers
     if (searchTerm) {
       searchTimeoutRef.current = setTimeout(() => {
         searchCustomers(searchTerm, 1, false)
       }, 300)
     } else {
-      // Load initial customers when dropdown opens and no search term
       loadInitialCustomers()
     }
     
@@ -151,7 +155,6 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
       if (searchTerm) {
         searchCustomers(searchTerm, page + 1, true)
       } else {
-        // Load more initial customers
         setLoading(true)
         api.get('/customers/search/', {
           params: { q: '', page: page + 1, limit: 20 }
@@ -180,18 +183,15 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     setIsOpen(false)
     setSearchTerm('')
     setHighlightedIndex(-1)
-    // Don't reset customers immediately to avoid flicker, but clear initialLoaded flag
-    // so next open loads fresh
     setInitialLoaded(false)
   }
 
-  // Get selected customer
-  const selectedCustomer = customers.find(c => String(c.id) === value)
-
   const handleSelect = (customerId, customerData) => {
+    setSelectedCustomerObj(customerData) // Store the selected customer object
     onChange(customerId, customerData)
     handleClose()
     setCustomers([]) // Clear results
+    setSearchTerm('') // Clear search term
   }
 
   const handleKeyDown = (e) => {
@@ -227,8 +227,8 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Style definitions (same as before)
-  const selectBase = {
+  // Style definitions
+  const selectBaseStyle = {
     border: `1px solid ${BORDER}`,
     borderRadius: 7,
     padding: '12px 14px',
@@ -309,19 +309,32 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     fontFamily: FONT,
   }
 
+  // Determine what to show in the input
+  const getInputValue = () => {
+    if (isOpen) {
+      return searchTerm
+    }
+    if (selectedCustomerObj) {
+      return selectedCustomerObj.company_name
+    }
+    return ''
+  }
+
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       <input
         ref={inputRef}
         type="text"
-        style={selectBase}
+        style={selectBaseStyle}
         placeholder={placeholder || 'Type to search or select customer...'}
-        value={isOpen ? searchTerm : (selectedCustomer?.company_name || '')}
+        value={getInputValue()}
         onChange={(e) => {
           setSearchTerm(e.target.value)
           setIsOpen(true)
           setHighlightedIndex(-1)
-          if (!e.target.value && !selectedCustomer) {
+          // If the input is cleared, clear the selected customer
+          if (!e.target.value && selectedCustomerObj) {
+            setSelectedCustomerObj(null)
             onChange('', null)
           }
         }}

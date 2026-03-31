@@ -11,6 +11,7 @@ const pageTitles = {
   '/employee/orders': 'Orders',
   '/employee/proforma-invoice': 'Proforma Invoice',
   '/employee/reports': 'Reports',
+  '/employee/reports/custom': 'Custom Reports',
 }
 
 export default function EmployeeLayout() {
