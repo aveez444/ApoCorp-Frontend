@@ -1,96 +1,255 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 
-const PRIMARY = '#122C41'
-const ACCENT  = '#1e88e5'
-const FONT    = 'Lato, sans-serif'
+const PRIMARY = '#1a1a2e'
+const ACCENT = '#2d6a4f'
+const GRAY = '#6c757d'
 
 const TYPE_OPTIONS = [
-  { value: 'INFO',    label: 'Info',    color: '#1e88e5', bg: '#e3f2fd', desc: 'General information' },
-  { value: 'SUCCESS', label: 'Success', color: '#16a34a', bg: '#f0fdf4', desc: 'Good news or completion' },
-  { value: 'WARNING', label: 'Warning', color: '#f59e0b', bg: '#fffbeb', desc: 'Caution or attention needed' },
-  { value: 'ALERT',   label: 'Alert',   color: '#ef4444', bg: '#fef2f2', desc: 'Urgent action required' },
+  { value: 'INFO', label: 'Info', color: '#2b6cb0', bg: '#ebf4ff', desc: 'General information' },
+  { value: 'SUCCESS', label: 'Success', color: '#2f855a', bg: '#e6f7ed', desc: 'Positive updates' },
+  { value: 'WARNING', label: 'Warning', color: '#c05621', bg: '#ffefdb', desc: 'Attention needed' },
+  { value: 'ALERT', label: 'Alert', color: '#c53030', bg: '#fee2e2', desc: 'Urgent action' },
 ]
 
 const TYPE_ICONS = {
-  INFO:    'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+  INFO: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
   SUCCESS: 'M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
   WARNING: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-  ALERT:   'M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
+  ALERT: 'M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
+}
+// Sent Notification Detail Modal Component (inside SendNotification.jsx)
+// Add the isValidUrl helper function at the top of SendNotification.jsx
+function isValidUrl(string) {
+  try {
+    if (string.includes('://')) {
+      new URL(string)
+      return true
+    }
+    const urlPattern = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/.*)?$|^localhost(:\d+)?(\/.*)?$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?(\/.*)?$/
+    return urlPattern.test(string)
+  } catch {
+    return false
+  }
 }
 
-function FInput({ label, value, onChange, placeholder, type = 'text' }) {
+// Updated SentNotificationDetail Modal Component
+function SentNotificationDetail({ notif, onClose }) {
+  const navigate = useNavigate()
+  const cfg = TYPE_OPTIONS.find(t => t.value === notif.type) || TYPE_OPTIONS[0]
+  const recipientCount = notif.recipients?.length ?? 0
+  const readCount = notif.recipients?.filter(r => r.is_read).length ?? 0
+
+  const handleLinkClick = () => {
+    if (!notif?.link) return
+    
+    let cleanLink = notif.link.trim()
+    
+    // Check if it's an external URL with protocol
+    if (cleanLink.startsWith('http://') || cleanLink.startsWith('https://')) {
+      window.open(cleanLink, '_blank', 'noopener noreferrer')
+      return
+    }
+    
+    // Check if it's a domain without protocol (like oringandseal.com)
+    if (isValidUrl(cleanLink)) {
+      window.open(`https://${cleanLink}`, '_blank', 'noopener noreferrer')
+      return
+    }
+    
+    // Check if it's a relative path (starts with /)
+    if (cleanLink.startsWith('/')) {
+      const path = cleanLink.substring(1)
+      navigate(`/${path}`)
+      onClose()
+      return
+    }
+    
+    // If it contains dots and no spaces, likely a URL missing protocol
+    if (cleanLink.includes('.') && !cleanLink.includes(' ')) {
+      const confirmOpen = window.confirm(`"${cleanLink}" appears to be a website. Open it in a new tab?`)
+      if (confirmOpen) {
+        window.open(`https://${cleanLink}`, '_blank', 'noopener noreferrer')
+      }
+    } else {
+      navigate(`/${cleanLink}`)
+      onClose()
+    }
+  }
+
+  const isExternalLink = notif.link && (notif.link.startsWith('http://') || notif.link.startsWith('https://') || isValidUrl(notif.link.trim()))
+
   return (
-    <div style={{ position: 'relative' }}>
-      <span style={{ position: 'absolute', top: -9, left: 10, background: '#fff', padding: '0 4px', fontSize: 11, fontWeight: 600, color: '#9ca3af', fontFamily: FONT, zIndex: 1, letterSpacing: '.04em', textTransform: 'uppercase' }}>{label}</span>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontFamily: FONT, color: '#111827', background: '#fff', boxSizing: 'border-box', outline: 'none', transition: 'border .15s' }}
-        onFocus={e => e.target.style.borderColor = ACCENT}
-        onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-    </div>
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
+      <div style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 500,
+        maxWidth: '90vw',
+        maxHeight: '80vh',
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+        zIndex: 1000,
+        overflow: 'auto'
+      }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 6, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke={cfg.color} strokeWidth={2}>
+                <path d={TYPE_ICONS[notif.type]} strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg, padding: '2px 8px', borderRadius: 4 }}>{cfg.label}</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: GRAY }}>×</button>
+        </div>
+        
+        <div style={{ padding: '20px' }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 600, color: PRIMARY }}>{notif.title}</h3>
+          <p style={{ margin: '0 0 20px 0', fontSize: 13.5, color: '#475569', lineHeight: 1.5 }}>{notif.message}</p>
+          
+          {notif.link && notif.link.trim() !== '' && (
+            <div style={{ marginBottom: 20, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: GRAY, marginBottom: 6 }}>
+                {isExternalLink ? 'External Link' : 'Related Page'}
+              </div>
+              <button 
+                onClick={handleLinkClick}
+                style={{ 
+                  fontSize: 12.5, 
+                  color: cfg.color, 
+                  background: `${cfg.color}10`,
+                  border: 'none',
+                  cursor: 'pointer', 
+                  fontWeight: 500, 
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: 'auto'
+                }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {isExternalLink ? (
+                    <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeLinecap="round" strokeLinejoin="round"/>
+                  ) : (
+                    <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m1.858-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                  )}
+                </svg>
+                {notif.link.length > 50 ? notif.link.substring(0, 50) + '...' : notif.link}
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  {isExternalLink ? (
+                    <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeLinecap="round" strokeLinejoin="round"/>
+                  ) : (
+                    <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                  )}
+                </svg>
+              </button>
+              <p style={{ fontSize: 11, color: GRAY, marginTop: 6, marginBottom: 0 }}>
+                {isExternalLink ? 'Opens in a new tab' : 'Navigates within the app'}
+              </p>
+            </div>
+          )}
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 500, color: GRAY, marginBottom: 4 }}>Sent</div>
+              <div style={{ fontSize: 12, color: PRIMARY }}>{new Date(notif.created_at).toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 500, color: GRAY, marginBottom: 4 }}>Status</div>
+              <div style={{ fontSize: 12, color: PRIMARY }}>{readCount}/{recipientCount} read</div>
+            </div>
+          </div>
+          
+          {notif.is_broadcast ? (
+            <div style={{ padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, fontSize: 12, color: GRAY }}>
+              📢 Broadcast to all employees
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 500, color: GRAY, marginBottom: 8 }}>Recipients ({recipientCount})</div>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 6 }}>
+                {notif.recipients?.map((r, i) => (
+                  <div key={i} style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: PRIMARY }}>{r.username || r.user?.username || `User ${r.id}`}</span>
+                    <span style={{ color: r.is_read ? '#2f855a' : GRAY, fontSize: 11 }}>
+                      {r.is_read ? '✓ Read' : '○ Unread'}
+                      {r.read_at && r.is_read && <span style={{ fontSize: 10, marginLeft: 4 }}>({new Date(r.read_at).toLocaleDateString()})</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
-/* ── Sent Notification History Row ──────────────────────────────── */
-function HistoryRow({ notif }) {
+function HistoryRow({ notif, onClick }) {
   const cfg = TYPE_OPTIONS.find(t => t.value === notif.type) || TYPE_OPTIONS[0]
   const recipientCount = notif.recipients?.length ?? 0
-  const readCount      = notif.recipients?.filter(r => r.is_read).length ?? 0
+  const readCount = notif.recipients?.filter(r => r.is_read).length ?? 0
 
   return (
-    <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 14 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke={cfg.color} strokeWidth={2}>
+    <div 
+      onClick={() => onClick(notif)}
+      style={{ 
+        padding: '12px 0', 
+        borderBottom: '1px solid #f1f5f9', 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 12,
+        cursor: 'pointer',
+        transition: 'background 0.2s'
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+      <div style={{ width: 32, height: 32, borderRadius: 6, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke={cfg.color} strokeWidth={2}>
           <path d={TYPE_ICONS[notif.type]} strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111827', fontFamily: FONT, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{notif.title}</div>
-        <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: FONT }}>{notif.message?.slice(0, 70)}{notif.message?.length > 70 ? '…' : ''}</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: PRIMARY, marginBottom: 2 }}>{notif.title}</div>
+        <div style={{ fontSize: 11.5, color: GRAY }}>{notif.message?.slice(0, 60)}{notif.message?.length > 60 ? '...' : ''}</div>
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        <span style={{ fontSize: 11.5, color: cfg.color, background: cfg.bg, padding: '2px 9px', borderRadius: 99, fontWeight: 700, fontFamily: FONT }}>{cfg.label}</span>
-        <span style={{ fontSize: 12, color: '#6b7280', fontFamily: FONT, whiteSpace: 'nowrap' }}>
-          {notif.is_broadcast ? 'Broadcast' : `${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`}
-        </span>
-        <span style={{ fontSize: 12, color: readCount > 0 ? '#16a34a' : '#9ca3af', fontFamily: FONT }}>
-          {readCount}/{recipientCount} read
-        </span>
-        <span style={{ fontSize: 11.5, color: '#9ca3af', fontFamily: FONT }}>
-          {notif.created_at ? new Date(notif.created_at).toLocaleDateString('en-IN') : ''}
-        </span>
+      <div style={{ fontSize: 11, color: GRAY, textAlign: 'right' }}>
+        <div>{readCount}/{recipientCount} read</div>
+        <div style={{ fontSize: 10, marginTop: 2 }}>{notif.created_at ? new Date(notif.created_at).toLocaleDateString() : ''}</div>
       </div>
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════════════════════════ */
 export default function SendNotification() {
-  // Form state
-  const [title, setTitle]         = useState('')
-  const [message, setMessage]     = useState('')
-  const [link, setLink]           = useState('')
-  const [type, setType]           = useState('INFO')
+  const navigate = useNavigate()
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+  const [link, setLink] = useState('')
+  const [type, setType] = useState('INFO')
   const [isBroadcast, setBroadcast] = useState(true)
   const [selectedUsers, setSelectedUsers] = useState([])
-  const [userSearch, setUserSearch]       = useState('')
-
-  // Data
+  const [userSearch, setUserSearch] = useState('')
   const [employees, setEmployees] = useState([])
-  const [history, setHistory]     = useState([])
-
-  // UI
-  const [sending, setSending]     = useState(false)
-  const [success, setSuccess]     = useState(false)
-  const [error, setError]         = useState('')
+  const [history, setHistory] = useState([])
+  const [sending, setSending] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedNotif, setSelectedNotif] = useState(null)
 
   const fetchData = useCallback(async () => {
     try {
       const [empRes, histRes] = await Promise.all([
         api.get('/accounts/users/?role=employee'),
-        api.get('/notifications/sent/').catch(() => ({ data: [] })),  // endpoint may vary
+        api.get('/notifications/sent/').catch(() => ({ data: [] })),
       ])
       setEmployees(empRes.data?.results || empRes.data || [])
       setHistory(histRes.data?.results || histRes.data || [])
@@ -106,9 +265,9 @@ export default function SendNotification() {
   }
 
   const handleSend = async () => {
-    if (!title.trim())   { setError('Title is required.'); return }
-    if (!message.trim()) { setError('Message is required.'); return }
-    if (!isBroadcast && selectedUsers.length === 0) { setError('Please select at least one recipient.'); return }
+    if (!title.trim()) { setError('Title is required'); return }
+    if (!message.trim()) { setError('Message is required'); return }
+    if (!isBroadcast && selectedUsers.length === 0) { setError('Select at least one recipient'); return }
 
     setError('')
     setSending(true)
@@ -127,248 +286,231 @@ export default function SendNotification() {
       await fetchData()
       setTimeout(() => setSuccess(false), 4000)
     } catch (e) {
-      setError(e.response?.data ? JSON.stringify(e.response.data) : 'Failed to send notification.')
+      setError(e.response?.data ? JSON.stringify(e.response.data) : 'Failed to send')
     } finally {
       setSending(false)
     }
   }
 
-  const selectedType = TYPE_OPTIONS.find(t => t.value === type) || TYPE_OPTIONS[0]
+  const handleHistoryClick = (notif) => {
+    setSelectedNotif(notif)
+  }
 
+  const selectedType = TYPE_OPTIONS.find(t => t.value === type) || TYPE_OPTIONS[0]
   const filteredEmployees = employees.filter(emp =>
     !userSearch ||
     emp.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    emp.first_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    emp.last_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
     emp.email?.toLowerCase().includes(userSearch.toLowerCase())
   )
 
   return (
-    <div style={{ fontFamily: FONT }}>
-      <style>{`
-        * { box-sizing: border-box; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:none } }
-        @keyframes slideIn { from { opacity:0; transform:translateX(20px) } to { opacity:1; transform:none } }
-        textarea:focus, input:focus { outline: none !important; }
-        .emp-row:hover { background: #f0f5ff !important; }
-        .type-card:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(0,0,0,.1) !important; }
-      `}</style>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/manager/dashboard')}
+        style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: 6, 
+          marginBottom: 20, 
+          background: 'none', 
+          border: 'none', 
+          cursor: 'pointer', 
+          color: GRAY, 
+          fontSize: 13, 
+          fontWeight: 500, 
+          padding: '6px 0',
+          transition: 'color 0.2s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = PRIMARY}
+        onMouseLeave={e => e.currentTarget.style.color = GRAY}>
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path d="M19 12H5M12 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Back to Dashboard
+      </button>
 
-      {/* BANNER */}
-      <div style={{ background: `linear-gradient(125deg, #0d1f30 0%, #122c41 40%, #1a4a6e 100%)`, borderRadius: 16, padding: '28px 32px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,.03)' }} />
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em', fontFamily: FONT }}>Send Notification</h1>
-        <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,.5)', fontSize: 13.5 }}>
-          Compose and send notifications to your team
-        </p>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: PRIMARY }}>Send Notification</h1>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: GRAY }}>Compose and send to your team</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 18, alignItems: 'start' }}>
-        {/* LEFT — COMPOSE */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+        {/* LEFT - Compose */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Type selector */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 14, fontFamily: FONT }}>Notification Type</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 14 }}>Type</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {TYPE_OPTIONS.map(t => (
-                <div key={t.value} className="type-card" onClick={() => setType(t.value)}
-                  style={{ padding: '12px 14px', borderRadius: 10, border: `2px solid ${type === t.value ? t.color : '#e5e7eb'}`, background: type === t.value ? t.bg : '#fff', cursor: 'pointer', transition: 'all .15s', boxShadow: type === t.value ? `0 2px 8px ${t.color}33` : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke={type === t.value ? t.color : '#9ca3af'} strokeWidth={2}>
-                      <path d={TYPE_ICONS[t.value]} strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: type === t.value ? t.color : '#374151', fontFamily: FONT }}>{t.label}</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#9ca3af', fontFamily: FONT }}>{t.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Compose card */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', boxShadow: '0 1px 8px rgba(0,0,0,.06)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#000', letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: FONT }}>Compose</div>
-            <FInput label="Title" value={title} onChange={setTitle} placeholder="Notification title…" />
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', top: -9, left: 10, background: '#fff', padding: '0 4px', fontSize: 11, fontWeight: 600, color: '#9ca3af', fontFamily: FONT, zIndex: 1, letterSpacing: '.04em', textTransform: 'uppercase' }}>Message</span>
-              <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Write your notification message here…" rows={5}
-                style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontFamily: FONT, color: '#111827', resize: 'vertical', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = ACCENT}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-            </div>
-            <FInput label="Link (optional)" value={link} onChange={setLink} placeholder="/employee/quotations or any frontend route" />
-          </div>
-
-          {/* Audience */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#000', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 14, fontFamily: FONT }}>Recipients</div>
-
-            {/* Toggle */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: isBroadcast ? 0 : 16 }}>
-              {[
-                { val: true,  label: '📢  Broadcast to all employees' },
-                { val: false, label: '👤  Select specific employees' },
-              ].map(opt => (
-                <button key={String(opt.val)} onClick={() => setBroadcast(opt.val)}
-                  style={{ flex: 1, padding: '11px 16px', borderRadius: 9, border: `2px solid ${isBroadcast === opt.val ? ACCENT : '#e5e7eb'}`, background: isBroadcast === opt.val ? '#e3f2fd' : '#fff', color: isBroadcast === opt.val ? '#1565c0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, transition: 'all .15s' }}>
-                  {opt.label}
+                <button key={t.value} onClick={() => setType(t.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: `1px solid ${type === t.value ? t.color : '#e2e8f0'}`,
+                    background: type === t.value ? t.bg : '#fff',
+                    color: type === t.value ? t.color : PRIMARY,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'center'
+                  }}>
+                  {t.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Employee selector */}
+          {/* Compose form */}
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 14 }}>Compose</div>
+            
+            <input 
+              value={title} 
+              onChange={e => setTitle(e.target.value)} 
+              placeholder="Title"
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, marginBottom: 14 }} />
+            
+            <textarea 
+              value={message} 
+              onChange={e => setMessage(e.target.value)} 
+              placeholder="Message" 
+              rows={4}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, marginBottom: 14, resize: 'vertical' }} />
+            
+            <input 
+              value={link} 
+              onChange={e => setLink(e.target.value)} 
+              placeholder="Link (optional)"
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+          </div>
+
+          {/* Audience */}
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 14 }}>Recipients</div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <button onClick={() => setBroadcast(true)}
+                style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${isBroadcast ? ACCENT : '#e2e8f0'}`, background: isBroadcast ? `${ACCENT}10` : '#fff', color: isBroadcast ? ACCENT : PRIMARY, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                All Employees
+              </button>
+              <button onClick={() => setBroadcast(false)}
+                style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${!isBroadcast ? ACCENT : '#e2e8f0'}`, background: !isBroadcast ? `${ACCENT}10` : '#fff', color: !isBroadcast ? ACCENT : PRIMARY, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                Select Specific
+              </button>
+            </div>
+
             {!isBroadcast && (
-              <div style={{ animation: 'slideIn .2s ease' }}>
-                <div style={{ position: 'relative', marginBottom: 10 }}>
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }}>
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" strokeLinecap="round"/>
-                  </svg>
-                  <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search employees…"
-                    style={{ width: '100%', paddingLeft: 32, paddingRight: 14, paddingTop: 9, paddingBottom: 9, border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: FONT, boxSizing: 'border-box' }} />
-                </div>
+              <>
+                <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search employees..."
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, marginBottom: 12 }} />
 
                 {selectedUsers.length > 0 && (
-                  <div style={{ marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <div style={{ marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {selectedUsers.map(uid => {
                       const emp = employees.find(e => e.id === uid)
                       return (
-                        <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', background: '#e3f2fd', color: '#1565c0', borderRadius: 99, fontSize: 12.5, fontWeight: 600, fontFamily: FONT }}>
+                        <span key={uid} style={{ padding: '2px 8px', background: '#f1f5f9', borderRadius: 4, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {emp?.username || uid}
-                          <button onClick={() => toggleUser(uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1565c0', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
+                          <button onClick={() => toggleUser(uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRAY }}>×</button>
                         </span>
                       )
                     })}
                   </div>
                 )}
 
-                <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 8 }}>
+                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: 6 }}>
                   {filteredEmployees.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: 13, fontFamily: FONT }}>No employees found</div>
+                    <div style={{ padding: 16, textAlign: 'center', color: GRAY, fontSize: 12 }}>No employees found</div>
                   ) : filteredEmployees.map(emp => {
                     const isSelected = selectedUsers.includes(emp.id)
                     return (
-                      <div key={emp.id} className="emp-row" onClick={() => toggleUser(emp.id)}
-                        style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, background: isSelected ? '#f0f5ff' : '#fff', borderBottom: '1px solid #f9fafb', transition: 'background .1s' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: isSelected ? ACCENT : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#fff' : '#6b7280', fontSize: 12, fontWeight: 700, fontFamily: FONT, flexShrink: 0 }}>
-                          {(emp.username || emp.first_name || '?').slice(0, 1).toUpperCase()}
+                      <div key={emp.id} onClick={() => toggleUser(emp.id)}
+                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', background: isSelected ? '#fafbfc' : '#fff' }}>
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 500, color: PRIMARY }}>{emp.username}</div>
+                          <div style={{ fontSize: 10.5, color: GRAY }}>{emp.email}</div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111827', fontFamily: FONT }}>
-                            {emp.first_name && emp.last_name ? `${emp.first_name} ${emp.last_name}` : emp.username}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: FONT }}>{emp.email || emp.username}</div>
-                        </div>
-                        <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${isSelected ? ACCENT : '#d1d5db'}`, background: isSelected ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {isSelected && (
-                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={3}>
-                              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
+                        <div style={{ width: 16, height: 16, borderRadius: 3, border: `1px solid ${isSelected ? ACCENT : '#cbd5e1'}`, background: isSelected ? ACCENT : '#fff' }}>
+                          {isSelected && <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10 }}>✓</div>}
                         </div>
                       </div>
                     )
                   })}
                 </div>
-              </div>
+              </>
             )}
           </div>
 
-          {/* Error */}
           {error && (
-            <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 9, fontSize: 13.5, color: '#b91c1c', fontFamily: FONT, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div style={{ padding: '10px 14px', background: '#fee2e2', borderRadius: 6, fontSize: 12, color: '#c53030' }}>
               {error}
             </div>
           )}
 
-          {/* Success */}
           {success && (
-            <div style={{ padding: '12px 16px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 9, fontSize: 13.5, color: '#166534', fontFamily: FONT, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Notification sent successfully!
+            <div style={{ padding: '10px 14px', background: '#e6f7ed', borderRadius: 6, fontSize: 12, color: '#2f855a' }}>
+              ✓ Notification sent successfully!
             </div>
           )}
 
-          {/* Send button */}
           <button onClick={handleSend} disabled={sending}
-            style={{ padding: '14px 32px', borderRadius: 10, border: 'none', background: sending ? '#94a3b8' : `linear-gradient(135deg, ${PRIMARY}, #1a4a6e)`, color: '#fff', fontSize: 15, fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer', fontFamily: FONT, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, boxShadow: sending ? 'none' : `0 4px 16px ${PRIMARY}44` }}>
-            {sending ? (
-              <>
-                <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-                Sending…
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-                {isBroadcast ? 'Send to All Employees' : `Send to ${selectedUsers.length} Employee${selectedUsers.length !== 1 ? 's' : ''}`}
-              </>
-            )}
+            style={{ padding: '12px', borderRadius: 6, border: 'none', background: sending ? GRAY : ACCENT, color: '#fff', fontSize: 13, fontWeight: 600, cursor: sending ? 'not-allowed' : 'pointer' }}>
+            {sending ? 'Sending...' : `Send ${isBroadcast ? 'to All' : `to ${selectedUsers.length} Employee${selectedUsers.length !== 1 ? 's' : ''}`}`}
           </button>
         </div>
 
-        {/* RIGHT — PREVIEW + HISTORY */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
+        {/* RIGHT - Preview & History */}
+        <div>
           {/* Preview */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', boxShadow: '0 1px 8px rgba(0,0,0,.06)', position: 'sticky', top: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#000', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 14, fontFamily: FONT }}>Preview</div>
-
-            <div style={{ border: `2px solid ${selectedType.bg}`, borderRadius: 12, overflow: 'hidden' }}>
-              {/* Preview header */}
-              <div style={{ background: selectedType.bg, padding: '14px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: `${selectedType.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke={selectedType.color} strokeWidth={2}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px', marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 14 }}>Preview</div>
+            <div style={{ border: `1px solid ${selectedType.bg}`, borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ background: selectedType.bg, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke={selectedType.color} strokeWidth={2}>
                     <path d={TYPE_ICONS[type]} strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111827', fontFamily: FONT, marginBottom: 3 }}>
-                    {title || <span style={{ color: '#d1d5db' }}>Notification title</span>}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: '#6b7280', fontFamily: FONT, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {message || <span style={{ color: '#d1d5db' }}>Your message will appear here…</span>}
-                  </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: PRIMARY }}>{title || 'Title'}</div>
+                  <div style={{ fontSize: 12, color: GRAY }}>{message || 'Message preview...'}</div>
                 </div>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: selectedType.color, flexShrink: 0, marginTop: 4 }} />
-              </div>
-              <div style={{ padding: '10px 16px', background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11.5, color: '#9ca3af', fontFamily: FONT }}>just now</span>
-                <span style={{ fontSize: 11.5, color: selectedType.color, fontFamily: FONT, fontWeight: 600 }}>{selectedType.label}</span>
               </div>
             </div>
-
-            {/* Audience summary */}
-            <div style={{ marginTop: 14, padding: '10px 14px', background: '#f9fafb', borderRadius: 9, border: '1px solid #f0f0f0' }}>
-              <div style={{ fontSize: 12, color: '#6b7280', fontFamily: FONT, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {isBroadcast
-                  ? <><strong>{employees.length}</strong> employees will receive this</>
-                  : selectedUsers.length > 0
-                    ? <><strong>{selectedUsers.length}</strong> employee{selectedUsers.length !== 1 ? 's' : ''} selected</>
-                    : <span style={{ color: '#f59e0b' }}>No recipients selected</span>
-                }
-              </div>
+            <div style={{ marginTop: 12, padding: '8px 12px', background: '#f8fafc', borderRadius: 6 }}>
+              <span style={{ fontSize: 11.5, color: GRAY }}>
+                {isBroadcast ? `📢 ${employees.length} employees` : `👤 ${selectedUsers.length} selected`}
+              </span>
             </div>
           </div>
 
-          {/* Sent history */}
+          {/* Recently Sent */}
           {history.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 8px rgba(0,0,0,.06)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#000', letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: FONT }}>Recently Sent</div>
-              </div>
-              {history.slice(0, 5).map(n => <HistoryRow key={n.id} notif={n} />)}
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 14 }}>Recently Sent</div>
+              {history.slice(0, 5).map(n => (
+                <HistoryRow key={n.id} notif={n} onClick={handleHistoryClick} />
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      {/* Detail Modal */}
+      {selectedNotif && (
+        <SentNotificationDetail 
+          notif={selectedNotif} 
+          onClose={() => setSelectedNotif(null)} 
+        />
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        input:focus, textarea:focus { outline: none; border-color: ${ACCENT}; }
+      `}</style>
     </div>
   )
 }
