@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import EditQuoteModal from '../../components/modals/EditQuoteModal'
+import QuotationPDFPanel from '../../components/QuotationPDFPanel'
 
 // ─── Status maps ──────────────────────────────────────────────────────────────
 const REVIEW_COLORS = {
@@ -438,13 +439,14 @@ export default function QuotationExternalDetail() {
             Edit Quotation
           </button>
 
-          {canSendQuotation && (
-            <button onClick={handleSendQuotation} disabled={sendingQuotation}
-              style={{ ...primaryBtn, background: sendingQuotation ? '#94a3b8' : '#1E88E5' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              {sendingQuotation ? 'Sending...' : clientStatus === 'SENT' ? 'Resend Quotation' : 'Send Quotation'}
-            </button>
-          )}
+          <QuotationPDFPanel
+            quotationId={quotation.id}
+            quotationNumber={quotation.quotation_number}
+            reviewStatus={quotation.review_status}
+            clientStatus={quotation.client_status}
+            customerEmail={quotation.customer_detail?.email || ''}
+            customerName={quotation.customer_detail?.company_name || ''}
+          />
 
           <button onClick={() => { setShowPOModal(true); setOaBlockMsg('') }} style={primaryBtn}>
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
