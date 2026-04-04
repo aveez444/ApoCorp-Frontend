@@ -7,6 +7,8 @@ import banner from '../../assets/dashboard-banner.png'
 const PRIMARY = '#122C41'
 const BORDER  = '#e2e8f0'
 const FONT    = "'Inter', 'Segoe UI', sans-serif"
+// ─── Helper ──────────────────────────────────────────────────────────────────
+const cd = q => q.customer_detail || {}
 
 // ─── Status maps ──────────────────────────────────────────────────────────────
 const REVIEW_COLORS = {
@@ -174,13 +176,22 @@ export default function ManagerQuotations() {
   )
 
   const filtered = byVisibility.filter(q => {
-    const matchSearch  = !search        || companyName.includes(search.toLowerCase()) || qNum.includes(search.toLowerCase())
-    const matchLoc     = !locationFilter|| city.includes(locationFilter.toLowerCase()) || state.includes(locationFilter.toLowerCase()) || country.includes(locationFilter.toLowerCase())
-    const matchContact = !contactFilter || phone.includes(contactFilter)
-    const matchDate    = !dateFilter    || q.created_at?.startsWith(dateFilter)
-    const matchStatus  = !statusFilter  || (isExternal ? q.client_status === statusFilter : q.review_status === statusFilter)
-    return matchSearch && matchLoc && matchContact && matchDate && matchStatus
-  })
+      const customer = cd(q)
+      const companyName = customer.company_name?.toLowerCase() || ''
+      const qNum = q.quotation_number?.toLowerCase() || ''
+      const city = customer.city?.toLowerCase() || ''
+      const state = customer.state?.toLowerCase() || ''
+      const country = customer.country?.toLowerCase() || ''
+      const poc = customer.pocs?.find(p => p.is_primary) || customer.pocs?.[0] || {}
+      const phone = poc.phone || customer.telephone_primary || ''
+      
+      const matchSearch  = !search        || companyName.includes(search.toLowerCase()) || qNum.includes(search.toLowerCase())
+      const matchLoc     = !locationFilter|| city.includes(locationFilter.toLowerCase()) || state.includes(locationFilter.toLowerCase()) || country.includes(locationFilter.toLowerCase())
+      const matchContact = !contactFilter || phone.includes(contactFilter)
+      const matchDate    = !dateFilter    || q.created_at?.startsWith(dateFilter)
+      const matchStatus  = !statusFilter  || (isExternal ? q.client_status === statusFilter : q.review_status === statusFilter)
+      return matchSearch && matchLoc && matchContact && matchDate && matchStatus
+    })
   // Add sorting by created_at descending (newest first)
   .sort((a, b) => {
     if (!a.created_at && !b.created_at) return 0
@@ -190,10 +201,11 @@ export default function ManagerQuotations() {
   })
 
   const handleExport = () => {
-    const headers = isExternal
-      ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Target Date Sub.', 'Sales Rep', 'Quote Value', 'Quote Days', 'Priority', 'Phone', 'Location']
-      : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Quote Days', 'Priority', 'Phone']
-    const rows = filtered.map(q => {
+    const HEADERS = isExternal
+      ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
+      : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
+      
+  const rows = filtered.map(q => {
       const loc = [q.city, q.state, q.country].filter(Boolean).join(', ')
       const row = [
         q.quotation_number, q.created_at?.slice(0, 10), q.customer_name,
@@ -219,9 +231,9 @@ export default function ManagerQuotations() {
   ]
 
   const HEADERS = isExternal
-    ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Target Date Sub.', 'Sales Rep', 'Quote Value', 'Quote Days', 'Priority', 'Phone', 'Location']
-    : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Quote Days', 'Priority', 'Phone']
-
+    ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Target Date Sub.', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
+    : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
+    
   return (
     <div style={{ fontFamily: FONT, background: '#f8fafc', minHeight: '100vh' }}>
       <style>{`
@@ -508,27 +520,32 @@ export default function ManagerQuotations() {
                   </td>
                 </tr>
               ) : filtered.map(q => {
-                const loc = [q.city, q.state, q.country].filter(Boolean).join(', ')
-                return (
-                  <tr key={q.id} className="q-row" onClick={() => navigate(`/manager/quotations/${q.id}/external`)}>
-                    <td style={{ fontWeight: 700, color: PRIMARY }}>{q.quotation_number}</td>
-                    <td>{q.created_at?.slice(0, 10) || '—'}</td>
-                    <td style={{ fontWeight: 600 }}>{q.customer_name || '—'}</td>
-                    <td><StatusBadge status={isExternal ? q.client_status : q.review_status} external={isExternal} /></td>
-                    {isExternal && <td>{q.target_submission_date || '—'}</td>}
-                    <td>{q.assigned_to_name || '—'}</td>
-                    <td style={{ fontWeight: 500 }}>{q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '—'}</td>
-                    <td>{q.quote_days != null ? `${q.quote_days} Days` : '—'}</td>
-                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                      <PriorityFlags priority={q.priority} />
-                    </td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <ContactCell phone={q.phone_mobile} name={q.customer_name} />
-                    </td>
-                    {isExternal && <td>{loc || '—'}</td>}
-                  </tr>
-                )
-              })}
+                  const customer = cd(q)
+                  const companyName = customer.company_name || '—'
+                  const poc = customer.pocs?.find(p => p.is_primary) || customer.pocs?.[0] || {}
+                  const phone = poc.phone || customer.telephone_primary || ''
+                  const email = poc.email || customer.email || ''
+                  const loc = [customer.city, customer.state, customer.country].filter(Boolean).join(', ') || '—'
+                  
+                  return (
+                    <tr key={q.id} className="q-row" onClick={() => navigate(`/manager/quotations/${q.id}/external`)}>
+                      <td style={{ fontWeight: 700, color: PRIMARY }}>{q.quotation_number}</td>
+                      <td>{q.created_at?.slice(0, 10) || '—'}</td>
+                      <td style={{ fontWeight: 600 }}>{companyName}</td>
+                      <td><StatusBadge status={isExternal ? q.client_status : q.review_status} external={isExternal} /></td>
+                      {isExternal && <td>{q.target_submission_date || '—'}</td>}
+                      <td>{q.assigned_to_name || '—'}</td>
+                      <td style={{ fontWeight: 500 }}>{q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '—'}</td>
+                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <PriorityFlags priority={q.priority} />
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <ContactCell phone={phone} name={companyName} />
+                      </td>
+                      <td>{loc}</td>
+                    </tr>
+                  )
+                })}
             </tbody>
           </table>
         </div>

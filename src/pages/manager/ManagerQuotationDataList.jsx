@@ -220,11 +220,11 @@ export default function ManagerQuotationDataList() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
-  const handleExport = () => {
-    const headers = isExternal
-      ? ['Quotation No.', 'Quotation Date', 'Due Date', 'Target Date Sub.', 'Entity Name', 'Contact', 'Location', 'Amount', 'Status']
-      : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Contact', 'Location', 'Amount', 'Status', 'Sales Rep']
-    
+    const handleExport = () => {
+        const headers = isExternal
+          ? ['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact', 'Location', 'Amount', 'Status']
+          : ['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact', 'Location', 'Amount', 'Status', 'Sales Rep']
+
     const rows = filtered.map(q => {
       const customer = q.customer_detail || {}
       const poc = customer.pocs?.find(p => p.is_primary) || customer.pocs?.[0] || {}
@@ -232,25 +232,20 @@ export default function ManagerQuotationDataList() {
       const email = poc.email || customer.email || ''
       const loc = [customer.city, customer.state, customer.country].filter(Boolean).join(', ')
       
-      const row = [
-        q.quotation_number || '',
-        q.created_at?.slice(0, 10) || '',
-      ]
-      
-      if (isExternal) {
-        row.push(q.valid_till_date || '')
-        row.push(q.expires_at || '')
-      }
-      
-      row.push(customer.company_name || '')
-      row.push(isExternal ? `${phone}${email ? ` (${email})` : ''}` : phone)
-      row.push(loc || '')
-      row.push(q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '')
-      row.push(isExternal ? (CLIENT_COLORS[q.client_status]?.label || q.client_status) : (REVIEW_COLORS[q.review_status]?.label || q.review_status))
-      
-      if (!isExternal) {
-        row.push(q.assigned_to_name || '—')
-      }
+    const row = [
+      q.quotation_number || '',
+      q.enquiry_number || '',
+      q.created_at?.slice(0, 10) || '',
+      customer.company_name || '',
+      isExternal ? `${phone}${email ? ` (${email})` : ''}` : phone,
+      loc || '',
+      q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '',
+      isExternal ? (CLIENT_COLORS[q.client_status]?.label || q.client_status) : (REVIEW_COLORS[q.review_status]?.label || q.review_status),
+    ]
+
+    if (!isExternal) {
+      row.push(q.assigned_to_name || '—')
+    }
       
       return row.map(v => v || '')
     })
@@ -267,9 +262,9 @@ export default function ManagerQuotationDataList() {
 
   // Table headers based on visibility
   const HEADERS = isExternal
-    ? ['Quotation No.', 'Quotation Date', 'Due Date', 'Target Date Sub.', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status']
-    : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status', 'Sales Rep', 'Priority']
-
+    ? ['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status']
+    : ['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status', 'Sales Rep', 'Priority']
+    
   return (
     <div style={{ fontFamily: FONT, background: '#f8fafc', minHeight: '100vh', padding: '20px 0' }}>
       <style>{`
@@ -469,7 +464,7 @@ export default function ManagerQuotationDataList() {
                   const phone = poc.phone || customer.telephone_primary || ''
                   const email = poc.email || customer.email || ''
                   const loc = [customer.city, customer.state, customer.country].filter(Boolean).join(', ')
-                  const path = `/manager/quotations/${q.id}`
+                  const path = `/manager/quotations/${q.id}/external`
 
                   return (
                     <tr
@@ -478,15 +473,10 @@ export default function ManagerQuotationDataList() {
                       onClick={() => navigate(path)}
                       style={{ background: i % 2 === 0 ? '#FAF9F9' : '#fff' }}
                     >
-                      <td style={{ ...tdStyle, color: PRIMARY, fontWeight: 700 }}>{q.quotation_number || '—'}</td>
-                      <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
-                      {isExternal && (
-                        <>
-                          <td style={tdStyle}>{q.valid_till_date || '—'}</td>
-                          <td style={tdStyle}>{q.expires_at || '—'}</td>
-                        </>
-                      )}
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
+                    <td style={{ ...tdStyle, color: PRIMARY, fontWeight: 700 }}>{q.quotation_number || '—'}</td>
+                    <td style={tdStyle}>{q.enquiry_number || '—'}</td>
+                    <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
                       <td style={tdStyle} onClick={e => e.stopPropagation()}>
                         <ContactCell phone={phone} email={email} name={customer.company_name} />
                       </td>

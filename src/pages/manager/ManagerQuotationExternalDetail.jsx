@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import EditQuoteModal from '../../components/modals/EditQuoteModal'
+import QuotationPDFPanel from '../../components/QuotationPDFPanel'
 
 // ─── Status maps ──────────────────────────────────────────────────────────────
 const REVIEW_COLORS = {
@@ -45,28 +46,30 @@ function Badge({ status, map }) {
   )
 }
 
-function InfoItem({ label, value }) {
+function InfoRow({ label, value }) {
   return (
-    <div>
-      <span style={{ fontSize: '13px', color: '#6b7280', fontFamily: 'Lato, sans-serif' }}>{label} : </span>
-      <span style={{ fontSize: '13px', fontWeight: 600, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{value || '—'}</span>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 4, marginBottom: 10 }}>
+      <span style={{ fontSize: '13px', color: '#6b7280', fontFamily: 'Lato, sans-serif', minWidth: 120 }}>{label} :</span>
+      <span style={{ fontSize: '13px', fontWeight: 600, color: '#232323', fontFamily: 'Lato, sans-serif', wordBreak: 'break-word' }}>{value || '—'}</span>
     </div>
   )
 }
 
-function Card({ title, children }) {
+function Card({ title, children, noPadding = false }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '20px 24px' }}>
-      <div style={{ fontSize: '15px', fontWeight: 700, color: '#122C41', fontFamily: 'Lato, sans-serif', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #f3f4f6' }}>{title}</div>
+    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      <div style={{ fontSize: '15px', fontWeight: 700, color: '#122C41', fontFamily: 'Lato, sans-serif', padding: '16px 20px', background: '#fafafa', borderBottom: '1px solid #e5e7eb' }}>{title}</div>
+      <div style={{ padding: noPadding ? 0 : '16px 20px' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function TwoColumnGrid({ children }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
       {children}
-    </div>
-  )
-}
-
-function InfoGrid({ items, cols = 3 }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '10px 0', marginBottom: 10 }}>
-      {items.map(({ label, value }) => <InfoItem key={label} label={label} value={value} />)}
     </div>
   )
 }
@@ -74,28 +77,28 @@ function InfoGrid({ items, cols = 3 }) {
 function FilesGrid({ attachments }) {
   if (!attachments?.length) return null
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {attachments.map((att, i) => {
         const filename = att.file?.split('/').pop() || `File ${i + 1}`
         const ext = filename.split('.').pop()?.toUpperCase() || 'FILE'
         const sizeMb = att.size ? `${(att.size / (1024 * 1024)).toFixed(0)} MB` : ''
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: `1.5px solid ${i === 0 ? '#3b82f6' : '#e5e7eb'}`, borderRadius: 8, padding: '12px 14px', background: i === 0 ? '#EEF3FF' : '#fafafa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 8, background: i === 0 ? '#dbeafe' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#122C41" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', background: '#fafafa' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#122C41" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: i === 0 ? '#122C41' : '#374151', fontFamily: 'Lato, sans-serif' }}>{filename.length > 24 ? filename.slice(0, 24) + '…' : filename}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', fontFamily: 'Lato, sans-serif', wordBreak: 'break-all' }}>{filename}</div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'Lato, sans-serif' }}>{[sizeMb, ext + ' File'].filter(Boolean).join(' – ')}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <a href={att.file} target="_blank" rel="noopener noreferrer" style={{ color: '#6b7280', display: 'flex', padding: 4 }}>
-                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <a href={att.file} target="_blank" rel="noopener noreferrer" style={{ color: '#6b7280', padding: 4 }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </a>
-              <a href={att.file} download style={{ color: '#6b7280', display: 'flex', padding: 4 }}>
-                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <a href={att.file} download style={{ color: '#6b7280', padding: 4 }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               </a>
             </div>
           </div>
@@ -123,22 +126,22 @@ function CommercialTermsCard({ terms }) {
     { label: 'Remarks', value: terms.remarks },
   ]
 
+  const visibleItems = termItems.filter(item => item.value)
+
   return (
     <Card title="Commercial Terms & Conditions">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px 20px' }}>
-        {termItems.map(item => (
-          item.value && (
-            <div key={item.label}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, fontFamily: 'Lato, sans-serif' }}>
-                {item.label}
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>
-                {item.value}
-              </div>
+      <TwoColumnGrid>
+        {visibleItems.map(item => (
+          <div key={item.label}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, fontFamily: 'Lato, sans-serif' }}>
+              {item.label}
             </div>
-          )
+            <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif', wordBreak: 'break-word' }}>
+              {item.value}
+            </div>
+          </div>
         ))}
-      </div>
+      </TwoColumnGrid>
     </Card>
   )
 }
@@ -148,22 +151,10 @@ function FollowUpsCard({ followUps }) {
   
   return (
     <Card title={`Follow Ups (${followUps.length})`}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {followUps.map((fu, idx) => (
-          <div key={idx} style={{ 
-            border: '1px solid #e5e7eb', 
-            borderRadius: 10, 
-            padding: '16px 20px',
-            background: idx % 2 === 0 ? '#fafafa' : '#fff'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: '1px solid #e5e7eb'
-            }}>
+          <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px', background: idx % 2 === 0 ? '#fafafa' : '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>
                 Follow Up #{idx + 1}
               </span>
@@ -173,30 +164,13 @@ function FollowUpsCard({ followUps }) {
                 </span>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px 16px' }}>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 2, fontFamily: 'Lato, sans-serif' }}>Follow Up Date</div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{fu.follow_up_date || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 2, fontFamily: 'Lato, sans-serif' }}>Contact Person</div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{fu.contact_person || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 2, fontFamily: 'Lato, sans-serif' }}>Contact Phone</div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{fu.contact_phone || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 2, fontFamily: 'Lato, sans-serif' }}>Contact Email</div>
-                <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{fu.contact_email || '—'}</div>
-              </div>
-              {fu.remarks && (
-                <div style={{ gridColumn: 'span 2' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 2, fontFamily: 'Lato, sans-serif' }}>Remarks</div>
-                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#232323', fontFamily: 'Lato, sans-serif' }}>{fu.remarks}</div>
-                </div>
-              )}
-            </div>
+            <TwoColumnGrid>
+              <InfoRow label="Follow Up Date" value={fu.follow_up_date} />
+              <InfoRow label="Contact Person" value={fu.contact_person} />
+              <InfoRow label="Contact Phone" value={fu.contact_phone} />
+              <InfoRow label="Contact Email" value={fu.contact_email} />
+              {fu.remarks && <InfoRow label="Remarks" value={fu.remarks} />}
+            </TwoColumnGrid>
           </div>
         ))}
       </div>
@@ -204,16 +178,118 @@ function FollowUpsCard({ followUps }) {
   )
 }
 
-function QRow({ label, value }) {
+// Replace the existing ProductsTable component with this enhanced version
+
+function ProductsTable({ items, totalAmount, taxAmount, grandTotal }) {
+  if (!items?.length) return null
+
+  // Format currency
+  const formatCurrency = (value) => {
+    if (!value && value !== 0) return '—'
+    return `₹${Number(value).toLocaleString('en-IN')}`
+  }
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'Lato, sans-serif', fontWeight: 400 }}>{label}</span>
-      <span style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>{value}</span>
+    <div style={{ marginTop: 24 }}>
+      <div style={{ 
+        fontSize: '15px', 
+        fontWeight: 700, 
+        color: '#122C41', 
+        fontFamily: 'Lato, sans-serif', 
+        marginBottom: 16,
+        paddingBottom: 8,
+        borderBottom: '2px solid #e5e7eb'
+      }}>
+        Product Details ({items.length})
+      </div>
+      <div style={{ 
+        overflowX: 'auto', 
+        borderRadius: 8, 
+        border: '1px solid #e5e7eb',
+        marginBottom: 16
+      }}>
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse', 
+          minWidth: 1100, 
+          fontSize: '12px',
+          fontFamily: 'Lato, sans-serif'
+        }}>
+          <thead>
+            <tr style={{ background: '#122C41' }}>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'nowrap' }}>Job Code</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'nowrap' }}>Cust. Part No.</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'nowrap' }}>Part No.</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'normal', minWidth: 200 }}>Product Name</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'nowrap' }}>HSN</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap' }}>Qty</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'left', whiteSpace: 'nowrap' }}>Unit</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
+              <th style={{ padding: '12px 10px', fontWeight: 700, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap' }}>Tax %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, i) => (
+              <tr key={i} style={{ 
+                borderBottom: '1px solid #f0f0f0', 
+                background: i % 2 === 0 ? '#fafafa' : '#fff',
+                verticalAlign: 'top'
+              }}>
+                <td style={{ padding: '12px 10px', color: '#232323', wordBreak: 'break-word' }}>{item.job_code || '—'}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', wordBreak: 'break-word' }}>{item.cust_part_no || item.customer_part_no || '—'}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', wordBreak: 'break-word' }}>{item.part_no || '—'}</td>
+                <td style={{ 
+                  padding: '12px 10px', 
+                  color: '#232323', 
+                  wordBreak: 'break-word', 
+                  whiteSpace: 'normal',
+                  lineHeight: 1.4,
+                  minWidth: 220,
+                  maxWidth: 280
+                }}>
+                  {item.product_name_snapshot || item.product_name || '—'}
+                </td>
+                <td style={{ padding: '12px 10px', color: '#232323', whiteSpace: 'nowrap' }}>{item.hsn_code || item.hsn || '—'}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', textAlign: 'center', whiteSpace: 'nowrap' }}>{item.quantity || item.qty || '—'}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', whiteSpace: 'nowrap' }}>{item.unit || 'Nos'}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(item.unit_price)}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(item.line_total)}</td>
+                <td style={{ padding: '12px 10px', color: '#232323', textAlign: 'center', whiteSpace: 'nowrap' }}>{item.tax_rate || item.tax_percent || '18%'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ 
+        marginTop: 8, 
+        padding: '14px 20px', 
+        background: '#f9fafb', 
+        borderRadius: 8, 
+        border: '1px solid #e5e7eb', 
+        textAlign: 'right' 
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          gap: 24,
+          flexWrap: 'wrap',
+          fontSize: '13px',
+          fontWeight: 500,
+          color: '#374151'
+        }}>
+          <span>Subtotal: <strong>{formatCurrency(totalAmount)}</strong></span>
+          <span>Tax: <strong>{formatCurrency(taxAmount)}</strong></span>
+          <span style={{ color: '#1E88E5', fontSize: '14px', fontWeight: 700 }}>
+            Grand Total: <strong>{formatCurrency(grandTotal)}</strong>
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
 
-// Helper function to resolve employee name
+// Helper functions
 function resolveEmpName(emp) {
   if (!emp) return null
   const full = [emp.first_name, emp.last_name].filter(Boolean).join(' ').trim()
@@ -239,7 +315,6 @@ export default function ManagerQuotationExternalDetail() {
   const [rejectRemark, setRejectRemark] = useState('')
   const [sendingQuotation, setSendingQuotation] = useState(false)
   const [oaBlockMsg, setOaBlockMsg] = useState('')
-  const [activeTab, setActiveTab] = useState('details')
   
   // Manager-specific states
   const [employees, setEmployees] = useState([])
@@ -251,6 +326,7 @@ export default function ManagerQuotationExternalDetail() {
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [activeTab, setActiveTab] = useState('details')  // <-- ADD THIS LINE
   
   // Follow-up states
   const [showAddFollowUpModal, setShowAddFollowUpModal] = useState(false)
@@ -306,7 +382,6 @@ export default function ManagerQuotationExternalDetail() {
     )
   }
 
-  // Manager approval actions
   const handleApprove = async () => {
     setApprovalLoading(true)
     try {
@@ -336,11 +411,9 @@ export default function ManagerQuotationExternalDetail() {
     }
   }
 
-  // Set priority (updates enquiry, not quotation)
   const handleSetPriority = async (priority) => {
     setSavingPriority(true)
     try {
-      // Update enquiry priority via enquiry API
       await api.patch(`/enquiries/${quotation.enquiry}/`, { priority })
       await refresh()
       setToast(`Priority set to ${PRIORITY_LABELS[priority]}`)
@@ -351,7 +424,6 @@ export default function ManagerQuotationExternalDetail() {
     }
   }
 
-  // Assign to sales rep (updates enquiry)
   const handleAssign = async () => {
     if (!assignTo) return
     setSavingAssign(true)
@@ -497,7 +569,6 @@ export default function ManagerQuotationExternalDetail() {
     }
   }
 
-  // Calculate quote days (days since created)
   const quoteDays = quotation?.created_at
     ? Math.floor((Date.now() - new Date(quotation.created_at)) / 86400000)
     : null
@@ -519,7 +590,6 @@ export default function ManagerQuotationExternalDetail() {
   const reviewStatus = quotation.review_status
   const visibility = quotation.visibility
   
-  // Determine if approval actions are available
   const canApprove = reviewStatus === 'UNDER_REVIEW'
   const canReject = reviewStatus === 'UNDER_REVIEW'
   const isApproved = reviewStatus === 'APPROVED'
@@ -538,83 +608,121 @@ export default function ManagerQuotationExternalDetail() {
   const priority = quotation.enquiry_priority || 'MEDIUM'
 
   return (
-    <div style={{ fontFamily: 'Lato, sans-serif', padding: '20px 0', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div style={{ fontFamily: 'Lato, sans-serif', padding: '20px 0', maxWidth: 1400, margin: '0 auto' }}>
+     <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Better table cell text wrapping */
+        .product-name-cell {
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: normal !important;
+          line-height: 1.4;
+        }
+        
+        /* Responsive table container */
+        .table-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Ensure sticky sidebar works */
+        @media (max-width: 1024px) {
+          .sidebar-sticky {
+            position: relative;
+            top: 0;
+          }
+        }
+      `}</style>
 
-      {/* ── Top bar ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/manager/quotations')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}>
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 12H5M12 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      {/* Header Section */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => navigate('/manager/quotations')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4, display: 'flex' }}>
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 12H5M12 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
-            <span style={{ fontSize: '22px', fontWeight: 700, color: '#122C41', letterSpacing: '-0.01em' }}>{quotation.quotation_number}</span>
+            <span style={{ fontSize: '24px', fontWeight: 700, color: '#122C41' }}>{quotation.quotation_number}</span>
             <Badge status={reviewStatus} map={REVIEW_COLORS} />
             <Badge status={clientStatus} map={CLIENT_COLORS} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingLeft: 28 }}>
-            {customer.company_name && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13px', color: '#6b7280' }}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                {customer.company_name}
-              </span>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => window.print()} style={outlineBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Print
+            </button>
+            
+            <button onClick={() => setShowEditModal(true)} style={outlineBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+
+            <QuotationPDFPanel
+              quotationId={quotation.id}
+              quotationNumber={quotation.quotation_number}
+              reviewStatus={quotation.review_status}
+              clientStatus={quotation.client_status}
+              customerEmail={quotation.customer_detail?.email || ''}
+              customerName={quotation.customer_detail?.company_name || ''}
+              onQuotationSent={refresh}
+            />
+
+            {canApprove && (
+              <button onClick={() => setShowApproveModal(true)} style={{ ...primaryBtn, background: '#43A047' }}>
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>
+                Approve
+              </button>
             )}
-            {loc && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13px', color: '#6b7280' }}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="12" r="3"/></svg>
-                {loc}
-              </span>
+            {canReject && (
+              <button onClick={() => setShowRejectModal(true)} style={{ ...outlineBtn, borderColor: '#ef4444', color: '#ef4444' }}>
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Reject
+              </button>
             )}
+
+            <button onClick={() => { setShowPOModal(true); setOaBlockMsg('') }} style={primaryBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              {quotation.po_number ? 'Update PO' : 'Add PO'}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button onClick={() => window.print()} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print
-          </button>
-          <button onClick={() => setShowEditModal(true)} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit Quotation
-          </button>
-
-          {/* Approval Actions */}
-          {canApprove && (
-            <button onClick={() => setShowApproveModal(true)} style={{ ...primaryBtn, background: '#43A047' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>
-              Approve
-            </button>
+        {/* Customer info row under header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingLeft: 32, flexWrap: 'wrap' }}>
+          {customer.company_name && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13px', color: '#6b7280' }}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              {customer.company_name}
+            </span>
           )}
-          {canReject && (
-            <button onClick={() => setShowRejectModal(true)} style={{ ...outlineBtn, borderColor: '#ef4444', color: '#ef4444' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              Reject
-            </button>
+          {loc && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13px', color: '#6b7280' }}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="12" r="3"/></svg>
+              {loc}
+            </span>
           )}
-
-          {canSendQuotation && (
-            <button onClick={handleSendQuotation} disabled={sendingQuotation}
-              style={{ ...primaryBtn, background: sendingQuotation ? '#94a3b8' : '#1E88E5' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              {sendingQuotation ? 'Sending...' : clientStatus === 'SENT' ? 'Resend Quotation' : 'Send Quotation'}
-            </button>
-          )}
-
-          <button onClick={() => { setShowPOModal(true); setOaBlockMsg('') }} style={primaryBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            {quotation.po_number ? 'Update PO Number' : 'Enter PO Number'}
-          </button>
         </div>
       </div>
 
-      {/* ── Two-column layout ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
+        {/* Main Content - Two Column Layout with responsive breakpoints */}
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'row', 
+          gap: 24, 
+          alignItems: 'flex-start',
+          flexWrap: 'wrap'
+        }}>
 
-        {/* ── Left column (Main Content) ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* LEFT COLUMN - Main Content - takes remaining space */}
+          <div style={{ 
+            flex: '1 1 0%', 
+            minWidth: 0,
+            overflowX: 'auto'
+          }}>
 
           {/* Tab Navigation */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e5e7eb', marginBottom: 20 }}>
             {[
               ['details', 'Quotation Details'],
               ['terms', 'Commercial Terms'],
@@ -624,7 +732,7 @@ export default function ManagerQuotationExternalDetail() {
                 key={key} 
                 onClick={() => setActiveTab(key)} 
                 style={{
-                  padding: '12px 20px',
+                  padding: '10px 20px',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -641,137 +749,89 @@ export default function ManagerQuotationExternalDetail() {
             ))}
           </div>
 
-          {/* Tab Content */}
+          {/* Tab: Details */}
           {activeTab === 'details' && (
-            <>
-              {/* Remarks */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Remarks Card */}
               <Card title="Remarks">
-                <InfoItem label="Remark" value={quotation.manager_remark || 'NIL'} />
-                {quotation.po_number && <div style={{ marginTop: 8 }}><InfoItem label="PO Number" value={quotation.po_number} /></div>}
+                <InfoRow label="Remark" value={quotation.manager_remark || 'NIL'} />
+                {quotation.po_number && <InfoRow label="PO Number" value={quotation.po_number} />}
               </Card>
 
-              {/* Enquiry Details */}
+              {/* Enquiry Details - Single column for better readability */}
               <Card title="Enquiry Details">
-                <InfoGrid items={[
-                  { label: 'Customer Name', value: poc.name || customer.company_name },
-                  { label: 'Entity Name',   value: customer.company_name },
-                  { label: 'Designation',   value: poc.designation },
-                ]} />
-                <InfoGrid items={[
-                  { label: 'Phone (Landline)', value: customer.telephone_primary },
-                  { label: 'Phone (Mobile)',   value: poc.phone || customer.telephone_primary },
-                  { label: 'Email ID',         value: poc.email || customer.email },
-                ]} />
-                <InfoGrid items={[
-                  { label: 'Region', value: customer.region },
-                  { label: 'City',   value: billing.city || customer.city },
-                  { label: 'State',  value: billing.state || customer.state },
-                ]} />
-                <div style={{ fontSize: '13px', fontFamily: 'Lato, sans-serif' }}>
-                  <span style={{ color: '#6b7280' }}>Detailed Address : </span>
-                  <span style={{ fontWeight: 600, color: '#232323' }}>
-                    {billing.address_line || [customer.city, customer.state, customer.country].filter(Boolean).join(', ') || '—'}
-                  </span>
-                </div>
+                <TwoColumnGrid>
+                  <InfoRow label="Customer Name" value={poc.name || customer.company_name} />
+                  <InfoRow label="Entity Name" value={customer.company_name} />
+                  <InfoRow label="Designation" value={poc.designation} />
+                  <InfoRow label="Phone (Landline)" value={customer.telephone_primary} />
+                  <InfoRow label="Phone (Mobile)" value={poc.phone || customer.telephone_primary} />
+                  <InfoRow label="Email ID" value={poc.email || customer.email} />
+                  <InfoRow label="Region" value={customer.region} />
+                  <InfoRow label="City" value={billing.city || customer.city} />
+                  <InfoRow label="State" value={billing.state || customer.state} />
+                </TwoColumnGrid>
+                <InfoRow label="Detailed Address" value={billing.address_line || [customer.city, customer.state, customer.country].filter(Boolean).join(', ') || '—'} />
               </Card>
 
               {/* Requirement Details */}
               <Card title="Requirement Details">
-                <div style={{ fontSize: '13px', fontFamily: 'Lato, sans-serif', marginBottom: 12 }}>
-                  <span style={{ color: '#6b7280' }}>Email Subject : </span>
-                  <span style={{ fontWeight: 600, color: '#232323' }}>{quotation.enquiry_subject || '—'}</span>
+                <div style={{ marginBottom: 12 }}>
+                  <InfoRow label="Email Subject" value={quotation.enquiry_subject || '—'} />
                 </div>
-                <InfoGrid items={[
-                  { label: 'Quotation Number',  value: enqNum },
-                  { label: 'Product/Item',      value: quotation.enquiry_product_name || '—' },
-                  { label: 'Prospective Value', value: prospectiveValue || '—' },
-                ]} />
-                <InfoGrid items={[
-                  { label: 'Enquiry Assigned to', value: assignedName },
-                  { label: 'Enquiry Type',        value: quotation.enquiry_type || '—' },
-                  { label: 'Source of Enquiry',   value: quotation.enquiry_source || '—' },
-                ]} />
-                <InfoGrid items={[
-                  { label: 'Region',               value: quotation.enquiry_region || customer.region || '—' },
-                  { label: 'Due Date',             value: quotation.enquiry_due_date || '—' },
-                  { label: 'Target DT Submission', value: quotation.enquiry_target_date || '—' },
-                ]} />
+                <TwoColumnGrid>
+                  <InfoRow label="Quotation Number" value={enqNum} />
+                  <InfoRow label="Product/Item" value={quotation.enquiry_product_name || '—'} />
+                  <InfoRow label="Prospective Value" value={prospectiveValue || '—'} />
+                  <InfoRow label="Enquiry Assigned to" value={assignedName} />
+                  <InfoRow label="Enquiry Type" value={quotation.enquiry_type || '—'} />
+                  <InfoRow label="Source of Enquiry" value={quotation.enquiry_source || '—'} />
+                  <InfoRow label="Region" value={quotation.enquiry_region || customer.region || '—'} />
+                  <InfoRow label="Due Date" value={quotation.enquiry_due_date || '—'} />
+                  <InfoRow label="Target DT Submission" value={quotation.enquiry_target_date || '—'} />
+                </TwoColumnGrid>
               </Card>
 
-              {/* Quotation Details */}
+              {/* Quotation Details - Remove ProductsTable from here */}
               <Card title="Quotation Details">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: quotation.line_items?.length ? 16 : 0 }}>
-                  <InfoItem label="Quotation Amount" value={quotation.grand_total ? `INR ${Number(quotation.grand_total).toLocaleString('en-IN')}/-` : null} />
-                  <InfoItem label="Quotation Number" value={quotation.quotation_number} />
-                  <InfoItem label="Quotation Date"   value={quotation.created_at?.slice(0, 10)} />
-                  <InfoItem label="Valid Till"       value={quotation.valid_till_date || quotation.expires_at || '—'} />
-                </div>
-                {quotation.line_items?.length > 0 && (
-                  <>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif', marginBottom: 10 }}>
-                      Product Details ({quotation.line_items.length})
-                    </div>
-                    <div style={{ overflowX: 'auto', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 750 }}>
-                        <thead>
-                          <tr style={{ background: '#122C41' }}>
-                            {['Job Code', 'Cust. Part No', 'Part No.', 'Name', 'HSN', 'Qty', 'Unit', 'Unit Price', 'Total', 'Tax %'].map(h => (
-                              <th key={h} style={{ padding: '9px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif', whiteSpace: 'nowrap' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {quotation.line_items.map((item, i) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? '#fafafa' : '#fff' }}>
-                              {[item.job_code, item.customer_part_no, item.part_no, item.product_name_snapshot, item.hsn_snapshot, item.quantity, item.unit_snapshot, `₹${Number(item.unit_price).toLocaleString('en-IN')}`, `₹${Number(item.line_total).toLocaleString('en-IN')}`, `${item.tax_percent}%`].map((v, j) => (
-                                <td key={j} style={{ padding: '9px 10px', fontSize: '12px', fontFamily: 'Lato, sans-serif', color: '#232323', whiteSpace: 'nowrap' }}>{v || '—'}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div style={{ marginTop: 10, padding: '10px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb', textAlign: 'right' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>
-                        Subtotal ₹{Number(quotation.total_amount).toLocaleString('en-IN')} &nbsp;+&nbsp; Tax ₹{Number(quotation.tax_amount).toLocaleString('en-IN')} &nbsp;=&nbsp; <span style={{ color: '#1E88E5' }}>Grand Total ₹{Number(quotation.grand_total).toLocaleString('en-IN')}</span>
-                      </span>
-                    </div>
-                  </>
-                )}
+                <TwoColumnGrid>
+                  <InfoRow label="Quotation Amount" value={quotation.grand_total ? `INR ${Number(quotation.grand_total).toLocaleString('en-IN')}/-` : null} />
+                  <InfoRow label="Quotation Number" value={quotation.quotation_number} />
+                  <InfoRow label="Quotation Date" value={quotation.created_at?.slice(0, 10)} />
+                  <InfoRow label="Valid Till" value={quotation.valid_till_date || quotation.expires_at || '—'} />
+                </TwoColumnGrid>
               </Card>
 
-              {/* Attached Files */}
+              {/* Products Table - Separate section with more spacing */}
+              <div style={{ marginTop: 8 }}>
+                <ProductsTable 
+                  items={quotation.line_items}
+                  totalAmount={quotation.total_amount}
+                  taxAmount={quotation.tax_amount}
+                  grandTotal={quotation.grand_total}
+                />
+              </div>
+              {/* Attachments */}
               {quotation.attachments?.length > 0 && (
                 <Card title={`Attached Files (${quotation.attachments.length})`}>
                   <FilesGrid attachments={quotation.attachments} />
                 </Card>
               )}
-            </>
+            </div>
           )}
 
+          {/* Tab: Terms */}
           {activeTab === 'terms' && (
             <CommercialTermsCard terms={quotation.terms} />
           )}
 
+          {/* Tab: Follow Ups */}
           {activeTab === 'followups' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button 
                   onClick={() => setShowAddFollowUpModal(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 20px',
-                    background: '#122C41',
-                    border: 'none',
-                    borderRadius: 7,
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontFamily: 'Lato, sans-serif'
-                  }}
+                  style={primaryBtn}
                 >
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <line x1="12" y1="5" x2="12" y2="19"/>
@@ -785,82 +845,76 @@ export default function ManagerQuotationExternalDetail() {
           )}
         </div>
 
-        {/* ── Right Sidebar (Manager Controls) ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+   
+            {/* RIGHT SIDEBAR - Controls - fixed width */}
+            <div style={{ 
+              width: 300, 
+              flexShrink: 0,
+              position: 'sticky',
+              top: 20
+            }}>
 
-          {/* Review Status Card */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '18px 20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+          {/* Review Status */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', marginBottom: 14 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
               Review Status
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Badge status={reviewStatus} map={REVIEW_COLORS} />
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                {visibility === 'EXTERNAL' ? '(Visible to employees)' : '(Internal only)'}
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                {visibility === 'EXTERNAL' ? '(Visible)' : '(Internal)'}
               </span>
             </div>
             {reviewStatus === 'APPROVED' && (
-              <div style={{ marginTop: 10, fontSize: '12px', color: '#43A047', background: '#EEFFEE', padding: '8px 12px', borderRadius: 6 }}>
-                ✓ This quotation is approved and ready to send to client
+              <div style={{ fontSize: '12px', color: '#43A047', background: '#EEFFEE', padding: '8px 12px', borderRadius: 6 }}>
+                ✓ Ready to send to client
               </div>
             )}
             {reviewStatus === 'REJECTED' && (
-              <div style={{ marginTop: 10, fontSize: '12px', color: '#E53935', background: '#FFF5F5', padding: '8px 12px', borderRadius: 6 }}>
-                ✗ This quotation was rejected. Please edit and resubmit for approval.
+              <div style={{ fontSize: '12px', color: '#E53935', background: '#FFF5F5', padding: '8px 12px', borderRadius: 6 }}>
+                ✗ Rejected. Edit and resubmit.
               </div>
             )}
           </div>
 
-          {/* Quote Days */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '18px 20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+          {/* Quote Age */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', marginBottom: 14 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
               Quote Age
             </div>
-            <div style={{ fontSize: '32px', fontWeight: 700, fontFamily: 'Lato, sans-serif', lineHeight: 1, color: quoteDays > 14 ? '#ef4444' : quoteDays > 7 ? '#f59e0b' : '#122C41' }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, lineHeight: 1, color: quoteDays > 14 ? '#ef4444' : quoteDays > 7 ? '#f59e0b' : '#122C41' }}>
               {quoteDays !== null ? quoteDays : '—'}
-              <span style={{ fontSize: '14px', fontWeight: 400, color: '#9ca3af', marginLeft: 5 }}>Days</span>
+              <span style={{ fontSize: '13px', fontWeight: 400, color: '#9ca3af', marginLeft: 4 }}>days</span>
             </div>
             {quotation.created_at && (
-              <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'Lato, sans-serif', marginTop: 6 }}>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 6 }}>
                 Created: {new Date(quotation.created_at).toLocaleDateString('en-IN')}
               </div>
             )}
           </div>
 
-          {/* Client Status Card */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '18px 20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+          {/* Client Status */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', marginBottom: 14 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
               Client Status
             </div>
             <div style={{ marginBottom: 12 }}>
               <Badge status={clientStatus} map={CLIENT_COLORS} />
             </div>
             {!isFinalized && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {canMarkNegotiating && (
-                  <button
-                    onClick={() => handleClientAction('mark_negotiating')}
-                    disabled={!!clientActionLoading}
-                    style={{ ...smallOutlineBtn, borderColor: '#8E24AA', color: '#8E24AA', background: '#faf5ff' }}
-                  >
+                  <button onClick={() => handleClientAction('mark_negotiating')} disabled={!!clientActionLoading} style={{ ...smallBtn, borderColor: '#8E24AA', color: '#8E24AA', background: '#faf5ff' }}>
                     {clientActionLoading === 'mark_negotiating' ? '...' : 'Mark Negotiating'}
                   </button>
                 )}
                 {canAccept && (
-                  <button
-                    onClick={() => handleClientAction('mark_accepted')}
-                    disabled={!!clientActionLoading}
-                    style={{ ...smallOutlineBtn, borderColor: '#43A047', color: '#43A047', background: '#f0fdf4' }}
-                  >
+                  <button onClick={() => handleClientAction('mark_accepted')} disabled={!!clientActionLoading} style={{ ...smallBtn, borderColor: '#43A047', color: '#43A047', background: '#f0fdf4' }}>
                     {clientActionLoading === 'mark_accepted' ? '...' : '✓ Mark Accepted'}
                   </button>
                 )}
                 {canRejectByClient && (
-                  <button
-                    onClick={() => setShowRejectClient(true)}
-                    disabled={!!clientActionLoading}
-                    style={{ ...smallOutlineBtn, borderColor: '#ef4444', color: '#ef4444', background: '#fef2f2' }}
-                  >
+                  <button onClick={() => setShowRejectClient(true)} disabled={!!clientActionLoading} style={{ ...smallBtn, borderColor: '#ef4444', color: '#ef4444', background: '#fef2f2' }}>
                     Rejected by Client
                   </button>
                 )}
@@ -868,40 +922,40 @@ export default function ManagerQuotationExternalDetail() {
             )}
             {isFinalized && (
               <div style={{ marginTop: 8, fontSize: '12px', color: clientStatus === 'ACCEPTED' ? '#43A047' : '#E53935' }}>
-                {clientStatus === 'ACCEPTED' ? '✓ Accepted by client' : '✗ Rejected by client'}
+                {clientStatus === 'ACCEPTED' ? '✓ Accepted' : '✗ Rejected'}
                 {quotation.po_number && clientStatus === 'ACCEPTED' && <span> • PO: {quotation.po_number}</span>}
               </div>
             )}
           </div>
 
-          {/* Set Priority (from Enquiry) */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '18px 20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
-              Set Priority
+          {/* Set Priority */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', marginBottom: 14 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+              Priority
             </div>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 8 }}>
               {PRIORITY_ORDER.map(p => {
                 const isActive = priority === p
                 return (
                   <button key={p} onClick={() => !savingPriority && handleSetPriority(p)} disabled={savingPriority}
                     title={PRIORITY_LABELS[p]}
-                    style={{ background: 'none', border: 'none', cursor: savingPriority ? 'wait' : 'pointer', padding: 3, borderRadius: 5, opacity: isActive ? 1 : 0.3, transform: isActive ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }}>
+                    style={{ background: 'none', border: 'none', cursor: savingPriority ? 'wait' : 'pointer', padding: 4, borderRadius: 5, opacity: isActive ? 1 : 0.35, transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.15s' }}>
                     <FlagIcon active={true} color={PRIORITY_COLORS[p]} size={22} />
                   </button>
                 )
               })}
             </div>
-            <div style={{ marginTop: 8, fontSize: '12px', color: '#4B5563' }}>
-              Current: <span style={{ fontWeight: 700, color: PRIORITY_COLORS[priority] || '#6b7280' }}>{PRIORITY_LABELS[priority] || '—'}</span>
+            <div style={{ fontSize: '12px', color: '#4B5563' }}>
+              Current: <span style={{ fontWeight: 700, color: PRIORITY_COLORS[priority] }}>{PRIORITY_LABELS[priority]}</span>
             </div>
           </div>
 
-          {/* Assign To (Sales Rep) */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '18px 20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', fontFamily: 'Lato, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+          {/* Assign To */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', marginBottom: 14 }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
               Assigned To
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <select 
                 value={assignTo} 
                 onChange={e => setAssignTo(e.target.value)}
@@ -912,15 +966,7 @@ export default function ManagerQuotationExternalDetail() {
                   borderRadius: 8,
                   fontSize: '13px',
                   fontFamily: 'Lato, sans-serif',
-                  color: '#374151',
-                  outline: 'none',
                   background: '#fff',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px center',
-                  paddingRight: 34,
-                  cursor: 'pointer'
                 }}
               >
                 <option value="">— Unassigned —</option>
@@ -951,23 +997,22 @@ export default function ManagerQuotationExternalDetail() {
           </div>
 
           {/* Quick Info */}
-          <div style={{ background: '#F3F4F6', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#4B5563', fontFamily: 'Lato, sans-serif', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ background: '#F3F4F6', borderRadius: 10, border: '1px solid #e5e7eb', padding: '14px 16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#4B5563', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Quick Info
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <QRow label="Created By" value={quotation.enquiry_created_by || '—'} />
-              <QRow label="Enquiry Date" value={quotation.enquiry_created_at ? new Date(quotation.enquiry_created_at).toLocaleDateString() : '—'} />
-              <QRow label="Customer Tier" value={customer.tier || '—'} />
-              <QRow label="Currency" value={quotation.enquiry_currency || 'INR'} />
-              <QRow label="Visibility" value={visibility === 'EXTERNAL' ? 'External (Client visible)' : 'Internal'} />
-              <QRow label="Valid Till" value={quotation.valid_till_date || quotation.expires_at || '—'} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <InfoRow label="Created By" value={quotation.enquiry_created_by || '—'} />
+              <InfoRow label="Enquiry Date" value={quotation.enquiry_created_at ? new Date(quotation.enquiry_created_at).toLocaleDateString() : '—'} />
+              <InfoRow label="Customer Tier" value={customer.tier || '—'} />
+              <InfoRow label="Currency" value={quotation.enquiry_currency || 'INR'} />
+              <InfoRow label="Valid Till" value={quotation.valid_till_date || quotation.expires_at || '—'} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Modals ── */}
+      {/* MODALS - unchanged from original */}
       <EditQuoteModal
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -982,7 +1027,7 @@ export default function ManagerQuotationExternalDetail() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 12, width: '90%', maxWidth: 400, zIndex: 1001, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '28px' }}>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#122C41', marginBottom: 12 }}>Approve Quotation</div>
             <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: 20 }}>
-              Are you sure you want to approve <strong>{quotation.quotation_number}</strong>? This will make it visible to employees and allow sending to client.
+              Approve <strong>{quotation.quotation_number}</strong>? This will make it visible to employees.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowApproveModal(false)} style={outlineBtn}>Cancel</button>
@@ -1000,13 +1045,13 @@ export default function ManagerQuotationExternalDetail() {
           <div onClick={() => setShowRejectModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000 }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 12, width: '90%', maxWidth: 440, zIndex: 1001, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '28px' }}>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#122C41', marginBottom: 12 }}>Reject Quotation</div>
-            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: 16 }}>Please provide a reason for rejection:</div>
+            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: 16 }}>Provide a reason:</div>
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               placeholder="Reason for rejection"
               rows={3}
-              style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', fontFamily: 'Lato, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: 20 }}
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', outline: 'none', resize: 'vertical', marginBottom: 20 }}
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowRejectModal(false)} style={outlineBtn}>Cancel</button>
@@ -1024,19 +1069,15 @@ export default function ManagerQuotationExternalDetail() {
           <div onClick={() => setShowRejectClient(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000 }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 12, width: '90%', maxWidth: 440, zIndex: 1001, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '28px' }}>
             <div style={{ fontSize: '17px', fontWeight: 700, color: '#122C41', marginBottom: 12 }}>Mark as Rejected by Client</div>
-            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: 16 }}>Optionally enter a reason for rejection:</div>
+            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: 16 }}>Optional reason:</div>
             <textarea
               value={rejectRemark} onChange={e => setRejectRemark(e.target.value)}
               placeholder="Reason for rejection (optional)" rows={3}
-              style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', fontFamily: 'Lato, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: 20 }}
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', outline: 'none', resize: 'vertical', marginBottom: 20 }}
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowRejectClient(false)} style={outlineBtn}>Cancel</button>
-              <button
-                onClick={() => handleClientAction('mark_rejected', { remark: rejectRemark })}
-                disabled={!!clientActionLoading}
-                style={{ ...outlineBtn, borderColor: '#ef4444', color: '#ef4444', background: '#fef2f2', cursor: 'pointer' }}
-              >
+              <button onClick={() => handleClientAction('mark_rejected', { remark: rejectRemark })} disabled={!!clientActionLoading} style={{ ...outlineBtn, borderColor: '#ef4444', color: '#ef4444', background: '#fef2f2' }}>
                 {clientActionLoading === 'mark_rejected' ? 'Saving...' : 'Confirm Rejection'}
               </button>
             </div>
@@ -1049,57 +1090,41 @@ export default function ManagerQuotationExternalDetail() {
         <>
           <div onClick={() => setShowPOModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 12, width: '90%', maxWidth: 560, zIndex: 1001, boxShadow: '0 24px 80px rgba(0,0,0,0.22)' }}>
-            <div style={{ padding: '22px 28px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 700, fontSize: '18px', color: '#122C41', fontFamily: 'Lato, sans-serif' }}>Enter PO Number</span>
+            <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 700, fontSize: '18px', color: '#122C41' }}>PO Number</span>
               <button onClick={() => setShowPOModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/></svg>
               </button>
             </div>
-            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', fontFamily: 'Lato, sans-serif', marginBottom: 8 }}>Quotation Number</div>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', top: -9, left: 10, background: '#f9fafb', padding: '0 4px', fontSize: '11px', color: '#6b7280', fontFamily: 'Lato, sans-serif', zIndex: 1 }}>Quotation Number</span>
-                  <input readOnly value={quotation.quotation_number}
-                    style={{ width: '100%', padding: '11px 14px', border: '2px solid #122C41', borderRadius: 7, fontSize: '14px', fontWeight: 600, fontFamily: 'Lato, sans-serif', color: '#122C41', background: '#f9fafb', outline: 'none', boxSizing: 'border-box' }} />
-                </div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8 }}>Quotation Number</div>
+                <input readOnly value={quotation.quotation_number}
+                  style={{ width: '100%', padding: '11px 14px', border: '2px solid #122C41', borderRadius: 7, fontSize: '14px', fontWeight: 600, color: '#122C41', background: '#f9fafb' }} />
               </div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', fontFamily: 'Lato, sans-serif', marginBottom: 8 }}>PO Number</div>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', top: -9, left: 10, background: '#fff', padding: '0 4px', fontSize: '11px', color: '#6b7280', fontFamily: 'Lato, sans-serif', zIndex: 1 }}>Purchase Order Number</span>
-                  <textarea
-                    value={poNumber}
-                    onChange={e => setPoNumber(e.target.value)}
-                    placeholder="Enter Purchase Order Number"
-                    rows={3}
-                    style={{ width: '100%', padding: '11px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', fontFamily: 'Lato, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-                  />
-                </div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8 }}>PO Number</div>
+                <textarea
+                  value={poNumber}
+                  onChange={e => setPoNumber(e.target.value)}
+                  placeholder="Enter Purchase Order Number"
+                  rows={3}
+                  style={{ width: '100%', padding: '11px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', resize: 'vertical' }}
+                />
               </div>
             </div>
             <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0' }}>
               {oaBlockMsg && (
-                <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, fontSize: '13px', color: '#b91c1c', fontFamily: 'Lato, sans-serif', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, fontSize: '13px', color: '#b91c1c' }}>
                   {oaBlockMsg}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button onClick={() => { setShowPOModal(false); setOaBlockMsg('') }} style={outlineBtn}>Back</button>
-                <button
-                  onClick={handleSavePO}
-                  disabled={savingPO || !poNumber.trim()}
-                  style={{ ...outlineBtn, borderColor: '#1E88E5', color: '#1E88E5', background: '#EEF5FF', cursor: (savingPO || !poNumber.trim()) ? 'not-allowed' : 'pointer', opacity: !poNumber.trim() ? .5 : 1 }}
-                >
+                <button onClick={handleSavePO} disabled={savingPO || !poNumber.trim()} style={{ ...outlineBtn, borderColor: '#1E88E5', color: '#1E88E5', background: '#EEF5FF' }}>
                   {savingPO ? 'Saving...' : 'Save PO'}
                 </button>
-                <button
-                  onClick={handleGenerateOA}
-                  disabled={savingPO || !poNumber.trim()}
-                  style={{ ...primaryBtn, background: (savingPO || !poNumber.trim()) ? '#94a3b8' : '#122C41', cursor: (savingPO || !poNumber.trim()) ? 'not-allowed' : 'pointer' }}
-                >
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <button onClick={handleGenerateOA} disabled={savingPO || !poNumber.trim()} style={{ ...primaryBtn, background: (savingPO || !poNumber.trim()) ? '#94a3b8' : '#122C41' }}>
                   Generate OA
                 </button>
               </div>
@@ -1114,148 +1139,47 @@ export default function ManagerQuotationExternalDetail() {
           <div onClick={() => setShowAddFollowUpModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 12, width: '90%', maxWidth: 520, zIndex: 1001, boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}>
             <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 700, fontSize: '18px', color: '#122C41', fontFamily: 'Lato, sans-serif' }}>Add Follow Up</span>
+              <span style={{ fontWeight: 700, fontSize: '18px', color: '#122C41' }}>Add Follow Up</span>
               <button onClick={() => setShowAddFollowUpModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/></svg>
               </button>
             </div>
-            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: 'Lato, sans-serif' }}>Follow Up Date *</div>
-                <input 
-                  type="date" 
-                  value={newFollowUp.follow_up_date}
-                  onChange={e => setNewFollowUp({...newFollowUp, follow_up_date: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '11px 14px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 7,
-                    fontSize: '13px',
-                    fontFamily: 'Lato, sans-serif',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Follow Up Date *</div>
+                <input type="date" value={newFollowUp.follow_up_date} onChange={e => setNewFollowUp({...newFollowUp, follow_up_date: e.target.value})}
+                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px' }} />
               </div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: 'Lato, sans-serif' }}>Contact Person</div>
-                <input 
-                  type="text"
-                  value={newFollowUp.contact_person}
-                  onChange={e => setNewFollowUp({...newFollowUp, contact_person: e.target.value})}
-                  placeholder="Enter contact person name"
-                  style={{
-                    width: '100%',
-                    padding: '11px 14px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 7,
-                    fontSize: '13px',
-                    fontFamily: 'Lato, sans-serif',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Contact Person</div>
+                <input type="text" value={newFollowUp.contact_person} onChange={e => setNewFollowUp({...newFollowUp, contact_person: e.target.value})}
+                  placeholder="Contact person name"
+                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: 'Lato, sans-serif' }}>Contact Phone</div>
-                  <input 
-                    type="text"
-                    value={newFollowUp.contact_phone}
-                    onChange={e => setNewFollowUp({...newFollowUp, contact_phone: e.target.value})}
-                    placeholder="Phone number"
-                    style={{
-                      width: '100%',
-                      padding: '11px 14px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: 7,
-                      fontSize: '13px',
-                      fontFamily: 'Lato, sans-serif',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Contact Phone</div>
+                  <input type="text" value={newFollowUp.contact_phone} onChange={e => setNewFollowUp({...newFollowUp, contact_phone: e.target.value})}
+                    placeholder="Phone"
+                    style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: 'Lato, sans-serif' }}>Contact Email</div>
-                  <input 
-                    type="email"
-                    value={newFollowUp.contact_email}
-                    onChange={e => setNewFollowUp({...newFollowUp, contact_email: e.target.value})}
-                    placeholder="Email address"
-                    style={{
-                      width: '100%',
-                      padding: '11px 14px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: 7,
-                      fontSize: '13px',
-                      fontFamily: 'Lato, sans-serif',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Contact Email</div>
+                  <input type="email" value={newFollowUp.contact_email} onChange={e => setNewFollowUp({...newFollowUp, contact_email: e.target.value})}
+                    placeholder="Email"
+                    style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px' }} />
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: 'Lato, sans-serif' }}>Remarks</div>
-                <textarea 
-                  value={newFollowUp.remarks}
-                  onChange={e => setNewFollowUp({...newFollowUp, remarks: e.target.value})}
-                  placeholder="Enter any remarks or notes"
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '11px 14px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 7,
-                    fontSize: '13px',
-                    fontFamily: 'Lato, sans-serif',
-                    outline: 'none',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Remarks</div>
+                <textarea value={newFollowUp.remarks} onChange={e => setNewFollowUp({...newFollowUp, remarks: e.target.value})}
+                  placeholder="Remarks or notes" rows={3}
+                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: '13px', resize: 'vertical' }} />
               </div>
             </div>
             <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setShowAddFollowUpModal(false)} 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '9px 22px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 7,
-                  background: '#fff',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  color: '#374151',
-                  fontFamily: 'Lato, sans-serif'
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleAddFollowUp} 
-                disabled={addingFollowUp}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '9px 22px',
-                  border: 'none',
-                  borderRadius: 7,
-                  background: addingFollowUp ? '#94a3b8' : '#122C41',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: addingFollowUp ? 'not-allowed' : 'pointer',
-                  color: '#fff',
-                  fontFamily: 'Lato, sans-serif'
-                }}
-              >
+              <button onClick={() => setShowAddFollowUpModal(false)} style={outlineBtn}>Cancel</button>
+              <button onClick={handleAddFollowUp} disabled={addingFollowUp} style={{ ...primaryBtn, background: addingFollowUp ? '#94a3b8' : '#122C41' }}>
                 {addingFollowUp ? 'Adding...' : 'Add Follow Up'}
               </button>
             </div>
@@ -1268,6 +1192,6 @@ export default function ManagerQuotationExternalDetail() {
   )
 }
 
-const outlineBtn = { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'Lato, sans-serif' }
-const primaryBtn = { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: 'none', borderRadius: 7, background: '#122C41', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#fff', fontFamily: 'Lato, sans-serif' }
-const smallOutlineBtn = { width: '100%', padding: '8px 12px', border: '1px solid', borderRadius: 6, fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: '#fff', fontFamily: 'Lato, sans-serif' }
+const outlineBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'Lato, sans-serif' }
+const primaryBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 7, background: '#122C41', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#fff', fontFamily: 'Lato, sans-serif' }
+const smallBtn = { width: '100%', padding: '8px 12px', border: '1px solid', borderRadius: 6, fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: '#fff', fontFamily: 'Lato, sans-serif' }

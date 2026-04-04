@@ -232,7 +232,7 @@ export default function QuotationDataList() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1050 }}>
             <thead>
               <tr>
-                {['Quotation No.', 'Quotation Date', 'Due Date', 'Target Date Sub.', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Remark', 'Status'].map(h => (
+                {['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Remark', 'Status'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -260,11 +260,10 @@ export default function QuotationDataList() {
                 const path     = isExternal ? `/employee/quotations/${q.id}/external` : `/employee/quotations/${q.id}`
                 return (
                   <tr key={q.id} className="q-row" onClick={() => navigate(path)} style={{ background: i % 2 === 0 ? '#FAF9F9' : '#fff' }}>
-                    <td style={{ ...tdStyle, color: '#122C41', fontWeight: 700 }}>{q.quotation_number}</td>
-                    <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
-                    <td style={tdStyle}>{q.valid_till_date || '—'}</td>
-                    <td style={tdStyle}>{q.expires_at || '—'}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
+                  <td style={{ ...tdStyle, color: '#122C41', fontWeight: 700 }}>{q.quotation_number}</td>
+                  <td style={tdStyle}>{q.enquiry_number || '—'}</td>
+                  <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
                     <td style={tdStyle}><ContactCell phone={phone} email={email} name={customer.company_name} /></td>
                     <td style={tdStyle}>{loc || '—'}</td>
                     <td style={tdStyle}>{q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '—'}</td>

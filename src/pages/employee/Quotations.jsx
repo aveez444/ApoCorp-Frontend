@@ -493,10 +493,10 @@ export default function Quotations() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isExternalCols ? 1000 : 900 }}>
             <thead>
               <tr>
-                {(isExternalCols 
-                  ? ['Quotation No.', 'Quotation Date', 'Due Date', 'Target Date Sub.', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status']
-                  : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Prospective Value', 'Remark', 'Status']
-                ).map(h => <th key={h}>{h}</th>)}
+            {(isExternalCols 
+              ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Amount', 'Status']
+              : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Contact Detail', 'Location', 'Prospective Value', 'Remark', 'Status']
+            ).map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -527,8 +527,6 @@ export default function Quotations() {
                   <tr key={q.id} className="q-row" onClick={() => navigate(path)}>
                     <td style={{ fontWeight: 700, color: PRIMARY }}>{q.quotation_number}</td>
                     <td>{q.created_at?.slice(0, 10) || '—'}</td>
-                    {isExternalCols && <td>{q.due_date || '—'}</td>}
-                    {isExternalCols && <td>{q.target_submission_date || '—'}</td>}
                     <td style={{ fontWeight: 600 }}>{customer.company_name || '—'}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <ContactCell phone={phone} email={email} name={poc.name || customer.company_name} />

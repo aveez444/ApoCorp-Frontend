@@ -9,12 +9,14 @@
 //     clientStatus={quotation.client_status}          ← NEW prop
 //     customerEmail={quotation.customer_detail?.email || ''}
 //     customerName={quotation.customer_detail?.company_name || ''}
+//     onQuotationSent={refresh}                       ← NEW prop for callback
 //   />
 //
 // The panel now renders as INLINE BUTTONS (no card wrapper) so it
 // sits naturally alongside Print / Edit Quotation in the header row.
 
 import { useState, useEffect } from 'react'
+import api from '../api/axios'  // Add this import
 
 const PRIMARY = '#122C41'
 const FONT    = "'Lato', 'Inter', 'Segoe UI', sans-serif"
@@ -55,22 +57,37 @@ async function downloadPdf(quotationId, quotationNumber) {
   setTimeout(() => URL.revokeObjectURL(url), 3000)
 }
 
-// Opens the default mail app via mailto: without navigating away.
-// Using an <a> click is more reliable than window.location.href — it
-// avoids the "canceled" network entry you see in DevTools.
-function openMailto(to, cc, subject, body) {
-  const params = new URLSearchParams()
-  if (cc.trim())      params.append('cc',      cc.trim())
-  if (subject.trim()) params.append('subject', subject.trim())
-  if (body.trim())    params.append('body',    body.trim())
+// ── Email client helpers ──────────────────────────────────────────────────────
 
-  const href = `mailto:${encodeURIComponent(to.trim())}?${params.toString()}`
-  const a    = document.createElement('a')
-  a.href     = href
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+// Build email URL for different providers
+function getEmailUrl(provider, to, cc, subject, body) {
+  const encodedTo = encodeURIComponent(to.trim())
+  const encodedCc = cc.trim() ? `&cc=${encodeURIComponent(cc.trim())}` : ''
+  const encodedSubject = subject.trim() ? `&subject=${encodeURIComponent(subject.trim())}` : ''
+  const encodedBody = body.trim() ? `&body=${encodeURIComponent(body.trim())}` : ''
+  
+  switch(provider) {
+    case 'gmail':
+      return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodedTo}${encodedCc}${encodedSubject}${encodedBody}`
+    case 'outlook':
+      return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodedTo}${encodedCc.replace('&cc=', '&cc=')}${encodedSubject.replace('&subject=', '&subject=')}${encodedBody.replace('&body=', '&body=')}`
+    case 'yahoo':
+      return `https://mail.yahoo.com/d/compose?to=${encodedTo}${encodedCc.replace('&cc=', '&cc=')}${encodedSubject.replace('&subject=', '&subject=')}${encodedBody.replace('&body=', '&body=')}`
+    default:
+      // Default mailto for system default
+      const params = new URLSearchParams()
+      if (to.trim()) params.append('to', to.trim())
+      if (cc.trim()) params.append('cc', cc.trim())
+      if (subject.trim()) params.append('subject', subject.trim())
+      if (body.trim()) params.append('body', body.trim())
+      return `mailto:${encodedTo}?${params.toString()}`
+  }
+}
+
+// Open email provider in new window
+function openEmailProvider(provider, to, cc, subject, body) {
+  const url = getEmailUrl(provider, to, cc, subject, body)
+  window.open(url, '_blank', 'noopener,noreferrer,width=800,height=600')
 }
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
@@ -195,47 +212,75 @@ function PDFPreviewModal({ quotationId, quotationNumber, onClose }) {
 
 // ── Send via Mail Modal ───────────────────────────────────────────────────────
 //
-// Two action paths:
-//   A) "Open Mail App"           — opens mailto: immediately, no download
-//   B) "Download PDF & Open Mail" — downloads first, then opens mailto:
-//
-// Both paths pre-fill To / CC / Subject / Body in the mail client.
-// The user attaches the PDF manually in Outlook (drag from Downloads).
+// Simple modal that lets user choose email provider and opens it with pre-filled data
+// Also calls the send_to_client API to update the quotation status
 
-function SendEmailModal({ quotationId, quotationNumber, customerEmail, customerName, clientStatus, onClose }) {
+function SendEmailModal({ quotationId, quotationNumber, customerEmail, customerName, clientStatus, onClose, onQuotationSent }) {
   const alreadySent = ['SENT', 'UNDER_NEGOTIATION', 'ACCEPTED', 'REJECTED_BY_CLIENT'].includes(clientStatus)
 
   const [toEmail,  setToEmail]  = useState(customerEmail || '')
   const [ccEmail,  setCcEmail]  = useState('')
   const [subject,  setSubject]  = useState(`Quotation ${quotationNumber} — ${customerName}`)
   const [body,     setBody]     = useState(
-    `Dear ${customerName || 'Team'},\n\nPlease find attached our quotation ${quotationNumber} for your reference.\n\nKindly review and revert with your valuable feedback.\n\nWarm regards`
+    `Dear ${customerName || 'Team'},
+
+Please find attached our quotation ${quotationNumber} for your reference.
+
+Kindly review and revert with your valuable feedback.
+
+Warm regards`
   )
-  const [step,  setStep]  = useState('compose')   // 'compose' | 'downloading' | 'done'
+  const [selectedProvider, setSelectedProvider] = useState(null)
+  const [showProviderSelect, setShowProviderSelect] = useState(true)
+  const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
 
-  const mailFields = { to: toEmail, cc: ccEmail, subject, body }
-
-  const handleOpenMail = () => {
-    if (!toEmail.trim()) return
-    openMailto(toEmail, ccEmail, subject, body)
-    setStep('done')
+  // Function to call the send_to_client API
+  const markAsSent = async () => {
+    try {
+      const response = await api.post(`/quotations/${quotationId}/send_to_client/`)
+      if (onQuotationSent) {
+        await onQuotationSent() // Refresh the parent component
+      }
+      return true
+    } catch (err) {
+      console.error('Failed to mark quotation as sent:', err)
+      const errorMsg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to update quotation status'
+      setError(errorMsg)
+      return false
+    }
   }
 
-  const handleDownloadAndOpenMail = async () => {
-    if (!toEmail.trim()) return
-    setStep('downloading')
-    setError(null)
-    try {
-      await downloadPdf(quotationId, quotationNumber)
-      // Small delay to let the download dialog appear before mail client opens
-      await new Promise(r => setTimeout(r, 600))
-      openMailto(toEmail, ccEmail, subject, body)
-      setStep('done')
-    } catch (e) {
-      setError(e.message)
-      setStep('compose')
+  const handleOpenEmail = async (provider) => {
+    if (!toEmail.trim()) {
+      alert('Please enter recipient email address')
+      return
     }
+    
+    setSending(true)
+    setError(null)
+    setSelectedProvider(provider)
+    
+    // First, mark the quotation as SENT (only if not already sent)
+    let shouldProceed = true
+    if (!alreadySent) {
+      const marked = await markAsSent()
+      shouldProceed = marked
+    }
+    
+    if (shouldProceed) {
+      // Open the email client
+      openEmailProvider(provider, toEmail, ccEmail, subject, body)
+      setShowProviderSelect(false)
+    }
+    
+    setSending(false)
+  }
+
+  const handleBack = () => {
+    setShowProviderSelect(true)
+    setSelectedProvider(null)
+    setError(null)
   }
 
   const inp = {
@@ -245,6 +290,206 @@ function SendEmailModal({ quotationId, quotationNumber, customerEmail, customerN
     outline: 'none',
   }
 
+  // Provider selection view
+  if (showProviderSelect) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(3px)', fontFamily: FONT,
+      }}>
+        <div style={{
+          background: '#fff', borderRadius: 14, padding: '28px 32px',
+          width: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+          maxHeight: '90vh', overflowY: 'auto',
+        }}>
+          {/* Modal header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: PRIMARY, margin: 0, fontFamily: FONT }}>
+                {alreadySent ? 'Send Again via Email' : 'Send via Email'}
+              </h3>
+              <p style={{ fontSize: 12, color: '#64748b', margin: 0, fontFamily: FONT }}>{quotationNumber}</p>
+            </div>
+          </div>
+
+          {/* Already-sent notice */}
+          {alreadySent && (
+            <div style={{ padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12, color: '#92400e', marginBottom: 18 }}>
+              This quotation was already sent. You can resend it.
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 7, fontSize: 12, color: '#dc2626', marginBottom: 18 }}>
+              {error}
+            </div>
+          )}
+
+          {/* Form fields */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>To *</label>
+            <input
+              value={toEmail}
+              onChange={e => setToEmail(e.target.value)}
+              placeholder="customer@example.com"
+              style={inp}
+              onFocus={e => e.target.style.borderColor = PRIMARY}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>CC (optional)</label>
+            <input
+              value={ccEmail}
+              onChange={e => setCcEmail(e.target.value)}
+              placeholder="manager@company.com"
+              style={inp}
+              onFocus={e => e.target.style.borderColor = PRIMARY}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>Subject</label>
+            <input
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              style={inp}
+              onFocus={e => e.target.style.borderColor = PRIMARY}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>Message Body</label>
+            <textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              rows={5}
+              style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }}
+              onFocus={e => e.target.style.borderColor = PRIMARY}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          {/* Choose email provider */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 12, fontFamily: FONT }}>Choose Email Service:</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <button
+                onClick={() => handleOpenEmail('gmail')}
+                disabled={sending}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: 8,
+                  background: sending ? '#f3f4f6' : '#fff', cursor: sending ? 'not-allowed' : 'pointer', 
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#374151', 
+                  transition: 'all 0.2s', opacity: sending ? 0.6 : 1
+                }}
+                onMouseEnter={e => { if (!sending) { e.currentTarget.style.borderColor = '#ea4335'; e.currentTarget.style.background = '#fef2f0' } }}
+                onMouseLeave={e => { if (!sending) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff' } }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                  <path fill="#ea4335" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z"/>
+                  <path fill="#fff" d="M12 6v6l4-2-4-4z"/>
+                  <path fill="#fff" d="M12 6v6l-4-2 4-4z"/>
+                  <path fill="#34a853" d="M12 18c-2.5 0-4.6-1.5-5.5-3.6l2.5-1.5c.6 1.2 1.8 2 3 2 2 0 3.5-1.5 3.5-3.5S14 8 12 8c-1.2 0-2.4.8-3 2L6.5 8.5C7.4 6.5 9.5 5 12 5c3.3 0 6 2.7 6 6s-2.7 6-6 6z"/>
+                </svg>
+                Gmail
+              </button>
+              <button
+                onClick={() => handleOpenEmail('outlook')}
+                disabled={sending}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: 8,
+                  background: sending ? '#f3f4f6' : '#fff', cursor: sending ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#374151',
+                  transition: 'all 0.2s', opacity: sending ? 0.6 : 1
+                }}
+                onMouseEnter={e => { if (!sending) { e.currentTarget.style.borderColor = '#0078d4'; e.currentTarget.style.background = '#f0f7ff' } }}
+                onMouseLeave={e => { if (!sending) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff' } }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#0078d4">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  <path d="M12 7v5l3.5 2-3.5-2V7z"/>
+                </svg>
+                Outlook
+              </button>
+              <button
+                onClick={() => handleOpenEmail('yahoo')}
+                disabled={sending}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: 8,
+                  background: sending ? '#f3f4f6' : '#fff', cursor: sending ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#374151',
+                  transition: 'all 0.2s', opacity: sending ? 0.6 : 1
+                }}
+                onMouseEnter={e => { if (!sending) { e.currentTarget.style.borderColor = '#6001d2'; e.currentTarget.style.background = '#f5f0ff' } }}
+                onMouseLeave={e => { if (!sending) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff' } }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#6001d2">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                </svg>
+                Yahoo Mail
+              </button>
+              <button
+                onClick={() => handleOpenEmail('default')}
+                disabled={sending}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: 8,
+                  background: sending ? '#f3f4f6' : '#fff', cursor: sending ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#374151',
+                  transition: 'all 0.2s', opacity: sending ? 0.6 : 1
+                }}
+                onMouseEnter={e => { if (!sending) { e.currentTarget.style.borderColor = '#6b7280'; e.currentTarget.style.background = '#f9fafb' } }}
+                onMouseLeave={e => { if (!sending) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff' } }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                Default Mail App
+              </button>
+            </div>
+          </div>
+
+          <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0369a1', marginBottom: 20, lineHeight: 1.5 }}>
+            <strong>💡 Tip:</strong> Your email will open in a new tab/window. You'll need to manually attach the PDF from your Downloads folder.
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              onClick={onClose}
+              disabled={sending}
+              style={{
+                border: '1.5px solid #e2e8f0', background: '#fff', color: '#374151',
+                padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                cursor: sending ? 'not-allowed' : 'pointer', fontFamily: FONT,
+                opacity: sending ? 0.5 : 1
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Success view after opening email
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.5)',
@@ -253,158 +498,45 @@ function SendEmailModal({ quotationId, quotationNumber, customerEmail, customerN
     }}>
       <div style={{
         background: '#fff', borderRadius: 14, padding: '28px 32px',
-        width: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        maxHeight: '90vh', overflowY: 'auto',
+        width: 450, boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+        textAlign: 'center'
       }}>
-
-        {step === 'done' ? (
-          /* ── Success state ── */
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            <h3 style={{ fontSize: 17, fontWeight: 700, color: PRIMARY, margin: '0 0 8px', fontFamily: FONT }}>
-              Mail Client Opened
-            </h3>
-            <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: '0 0 16px', fontFamily: FONT }}>
-              Your default mail app opened with the message pre-filled.<br />
-              Attach <strong>Quotation_{quotationNumber}.pdf</strong> from your Downloads and hit Send.
-            </p>
-            <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e', marginBottom: 20, textAlign: 'left' }}>
-              <strong>💡 Outlook tip:</strong> Drag the PDF from your Downloads folder into the compose window to attach it.
-            </div>
-            <button onClick={onClose} style={{
-              background: PRIMARY, color: '#fff', border: 'none',
-              padding: '10px 28px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+        <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: PRIMARY, margin: '0 0 12px', fontFamily: FONT }}>
+          Email Client Opened
+        </h3>
+        <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: '0 0 20px', fontFamily: FONT }}>
+          {!alreadySent && (
+            <span style={{ display: 'block', marginBottom: 12, color: '#43A047' }}>
+              ✓ Quotation marked as SENT successfully!
+            </span>
+          )}
+          Your email has been opened with the recipient, subject, and message pre-filled.<br/><br/>
+          <strong>Don't forget to attach the PDF file:</strong><br/>
+          Download the PDF first using the "Download PDF" button, then attach it to your email.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button
+            onClick={handleBack}
+            style={{
+              border: '1.5px solid #e2e8f0', background: '#fff', color: '#374151',
+              padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
               cursor: 'pointer', fontFamily: FONT,
-            }}>Done</button>
-          </div>
-        ) : (
-          /* ── Compose state ── */
-          <>
-            {/* Modal header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-              </div>
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: PRIMARY, margin: 0, fontFamily: FONT }}>
-                  {alreadySent ? 'Send Again via Mail' : 'Send via Mail'}
-                </h3>
-                <p style={{ fontSize: 12, color: '#64748b', margin: 0, fontFamily: FONT }}>{quotationNumber}</p>
-              </div>
-            </div>
-
-            {/* Info banner */}
-            <div style={{ padding: '9px 12px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0369a1', marginBottom: 18, lineHeight: 1.5 }}>
-              Fill in the details below, then choose how to proceed. The PDF must be attached manually in your mail client.
-            </div>
-
-            {/* Already-sent notice */}
-            {alreadySent && (
-              <div style={{ padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12, color: '#92400e', marginBottom: 14 }}>
-                This quotation was already sent. You can resend it — for example if the client lost the document.
-              </div>
-            )}
-
-            {/* Form fields */}
-            {[
-              ['To *',           toEmail,  setToEmail,  'customer@example.com'],
-              ['CC (optional)',  ccEmail,  setCcEmail,  'manager@company.com'],
-              ['Subject',        subject,  setSubject,  ''],
-            ].map(([label, val, setter, ph]) => (
-              <div key={label} style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>{label}</label>
-                <input
-                  value={val}
-                  onChange={e => setter(e.target.value)}
-                  placeholder={ph}
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = PRIMARY}
-                  onBlur={e  => e.target.style.borderColor = '#e2e8f0'}
-                />
-              </div>
-            ))}
-
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, fontFamily: FONT }}>Message Body</label>
-              <textarea
-                value={body}
-                onChange={e => setBody(e.target.value)}
-                rows={5}
-                style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }}
-                onFocus={e => e.target.style.borderColor = PRIMARY}
-                onBlur={e  => e.target.style.borderColor = '#e2e8f0'}
-              />
-            </div>
-
-            {error && (
-              <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 7, fontSize: 12, color: '#dc2626', marginBottom: 14 }}>
-                {error}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-
-              {/* Cancel */}
-              <button
-                onClick={onClose}
-                style={{
-                  border: '1.5px solid #e2e8f0', background: '#fff', color: '#374151',
-                  padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: FONT,
-                }}
-              >
-                Cancel
-              </button>
-
-              {/* Open Mail App — no download */}
-              <button
-                onClick={handleOpenMail}
-                disabled={!toEmail.trim() || step === 'downloading'}
-                style={{
-                  border: '1.5px solid #2563eb', background: '#eff6ff', color: '#2563eb',
-                  padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: (!toEmail.trim() || step === 'downloading') ? 'not-allowed' : 'pointer',
-                  fontFamily: FONT, display: 'inline-flex', alignItems: 'center', gap: 7,
-                  opacity: (!toEmail.trim() || step === 'downloading') ? 0.5 : 1,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-                Open Mail App
-              </button>
-
-              {/* Download PDF & Open Mail */}
-              <button
-                onClick={handleDownloadAndOpenMail}
-                disabled={!toEmail.trim() || step === 'downloading'}
-                style={{
-                  background: PRIMARY, color: '#fff', border: 'none',
-                  padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: (!toEmail.trim() || step === 'downloading') ? 'not-allowed' : 'pointer',
-                  fontFamily: FONT, display: 'inline-flex', alignItems: 'center', gap: 7,
-                  opacity: (!toEmail.trim() || step === 'downloading') ? 0.5 : 1,
-                }}
-              >
-                {step === 'downloading' ? (
-                  <><Spinner size={13} /> Downloading…</>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                    </svg>
-                    Download &amp; Open Mail
-                  </>
-                )}
-              </button>
-            </div>
-          </>
-        )}
+            }}
+          >
+            Back
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              background: PRIMARY, color: '#fff', border: 'none',
+              padding: '9px 28px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: FONT,
+            }}
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -422,6 +554,7 @@ export default function QuotationPDFPanel({
   clientStatus  = 'DRAFT',
   customerEmail = '',
   customerName  = '',
+  onQuotationSent,  // New prop for callback
 }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [emailOpen,   setEmailOpen]   = useState(false)
@@ -516,6 +649,7 @@ export default function QuotationPDFPanel({
           customerName={customerName}
           clientStatus={clientStatus}
           onClose={() => setEmailOpen(false)}
+          onQuotationSent={onQuotationSent}
         />
       )}
     </>
