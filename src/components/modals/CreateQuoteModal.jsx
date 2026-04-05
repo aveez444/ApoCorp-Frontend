@@ -241,66 +241,75 @@ export default function CreateQuoteModal({ open, onClose, enquiry, onSuccess }) 
   }
 
   const handleSubmit = async () => {
-    if (lineItems.length === 0) { alert('Please add at least one product'); return }
-    if (submitting) return
-    setSubmitting(true)
-    try {
-      const payload = {
-        enquiry: enquiry.id,
-        customer: enquiry.customer,
-        currency,
-        line_items: lineItems.map(item => ({
-          job_code: item.job_code || '',
-          customer_part_no: item.customer_part_no || '',
-          part_no: item.part_no || '',
-          product_name_snapshot: item.product_name_snapshot,
-          description_snapshot: item.description_snapshot || '',
-          hsn_snapshot: item.hsn_snapshot || '',
-          unit_snapshot: item.unit_snapshot || 'NOS',
-          quantity: Number(item.quantity),
-          unit_price: Number(item.unit_price),
-          tax_percent: Number(item.tax_percent) || 0,
-          tax_group_code: item.tax_group_code || '',
+  if (lineItems.length === 0) { alert('Please add at least one product'); return }
+  if (submitting) return
+  setSubmitting(true)
+  try {
+    const payload = {
+      enquiry: enquiry.id,
+      customer: enquiry.customer,
+      currency,
+      line_items: lineItems.map(item => ({
+        job_code: item.job_code || '',
+        customer_part_no: item.customer_part_no || '',
+        part_no: item.part_no || '',
+        product_name_snapshot: item.product_name_snapshot,
+        description_snapshot: item.description_snapshot || '',
+        hsn_snapshot: item.hsn_snapshot || '',
+        unit_snapshot: item.unit_snapshot || 'NOS',
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        tax_percent: Number(item.tax_percent) || 0,
+        tax_group_code: item.tax_group_code || '',
+      })),
+      terms: { ...terms },
+      follow_ups: followUps
+        .filter(fu => fu.follow_up_date?.trim())
+        .map(fu => ({
+          follow_up_date: fu.follow_up_date,
+          contact_person: fu.contact_person || '',
+          contact_phone: fu.contact_phone || '',
+          contact_email: fu.contact_email || '',
+          remarks: fu.remarks || '',
         })),
-        terms: { ...terms },
-        follow_ups: followUps
-          .filter(fu => fu.follow_up_date?.trim())
-          .map(fu => ({
-            follow_up_date: fu.follow_up_date,
-            contact_person: fu.contact_person || '',
-            contact_phone: fu.contact_phone || '',
-            contact_email: fu.contact_email || '',
-            remarks: fu.remarks || '',
-          })),
-      }
+    }
 
-      const createRes = await api.post('/quotations/', payload)
-      const quotationData = createRes.data
-      const quotationId = quotationData.id || quotationData.uuid || quotationData.quotation_id
+    // Create quotation first
+    const createRes = await api.post('/quotations/', payload)
+    const quotationData = createRes.data
+    const quotationId = quotationData.id || quotationData.uuid || quotationData.quotation_id
 
-      if (!quotationId) throw new Error('No id found in create response')
+    if (!quotationId) throw new Error('No id found in create response')
 
-      if (files.length > 0) {
-        for (const file of files) {
-          try {
-            const fd = new FormData()
-            fd.append('file', file)
-            await api.post(`/quotations/${quotationId}/upload_file/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-          } catch (uploadErr) {
-            console.error(`Upload failed for ${file.name}:`, uploadErr?.response?.data || uploadErr)
-          }
+    // Upload files using the upload_file endpoint
+    if (files.length > 0) {
+      for (const file of files) {
+        try {
+          const fd = new FormData()
+          fd.append('file', file)
+          await api.post(`/quotations/${quotationId}/upload_file/`, fd, { 
+            headers: { 'Content-Type': 'multipart/form-data' } 
+          })
+        } catch (uploadErr) {
+          console.error(`Upload failed for ${file.name}:`, uploadErr?.response?.data || uploadErr)
+          // Continue with other files even if one fails
         }
       }
-
-      onSuccess?.({ quotationNumber: quotationData.quotation_number, enquiryNumber: enquiry.enquiry_number, quotationId })
-      onClose()
-    } catch (err) {
-      const msg = err?.response?.data?.detail || err?.response?.data?.non_field_errors?.[0] || err.message || 'Failed to create quotation'
-      alert(msg)
-    } finally {
-      setSubmitting(false)
     }
+
+    onSuccess?.({ 
+      quotationNumber: quotationData.quotation_number, 
+      enquiryNumber: enquiry.enquiry_number, 
+      quotationId 
+    })
+    onClose()
+  } catch (err) {
+    const msg = err?.response?.data?.detail || err?.response?.data?.non_field_errors?.[0] || err.message || 'Failed to create quotation'
+    alert(msg)
+  } finally {
+    setSubmitting(false)
   }
+}
 
   // Delete a single line item
   const handleDeleteItem = (index) => {

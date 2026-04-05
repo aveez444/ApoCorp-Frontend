@@ -231,9 +231,9 @@ export default function ManagerQuotations() {
   ]
 
   const HEADERS = isExternal
-    ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Target Date Sub.', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
+    ? ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
     : ['Quotation No.', 'Quotation Date', 'Entity Name', 'Status', 'Sales Rep', 'Quote Value', 'Priority', 'Phone', 'Location']
-    
+      
   return (
     <div style={{ fontFamily: FONT, background: '#f8fafc', minHeight: '100vh' }}>
       <style>{`
@@ -533,7 +533,6 @@ export default function ManagerQuotations() {
                       <td>{q.created_at?.slice(0, 10) || '—'}</td>
                       <td style={{ fontWeight: 600 }}>{companyName}</td>
                       <td><StatusBadge status={isExternal ? q.client_status : q.review_status} external={isExternal} /></td>
-                      {isExternal && <td>{q.target_submission_date || '—'}</td>}
                       <td>{q.assigned_to_name || '—'}</td>
                       <td style={{ fontWeight: 500 }}>{q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '—'}</td>
                       <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>

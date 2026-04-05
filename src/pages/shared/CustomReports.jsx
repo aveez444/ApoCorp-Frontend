@@ -105,10 +105,10 @@ function SavedItem({ report, active, onRun, onDelete, onDuplicate }) {
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: active ? PRIMARY : '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {report.name}
+          {report?.name || 'Unnamed Report'}
         </div>
         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-          {report.column_count} col · {report.created_by_name || 'Unknown'}
+          {report?.column_count || 0} col · {report?.created_by_name || 'Unknown'}
         </div>
       </div>
 
@@ -410,6 +410,20 @@ export default function CustomReports({ role = 'employee' }) {
       .finally(() => setLoadingRegistry(false))
   }, [])
 
+  // Add this after the useEffect that loads saved reports (around line 390)
+
+  // Validate saved reports when they load
+  useEffect(() => {
+    if (savedReports.length > 0 && registry) {
+      // Optional: Validate each saved report's config
+      savedReports.forEach(report => {
+        if (!report.config || typeof report.config !== 'object') {
+          console.warn(`Report "${report.name}" has invalid config:`, report.config)
+        }
+      })
+    }
+  }, [savedReports, registry])
+
   // ── Flattened field list for filters ───────────────────────────────────────
   const allFields = registry
     ? Object.entries(registry.fields).flatMap(([mod, fields]) =>
@@ -426,16 +440,17 @@ export default function CustomReports({ role = 'employee' }) {
 
   // ── Build config from builder state ────────────────────────────────────────
   const buildConfig = useCallback(() => ({
-    modules:  selectedModules,
-    columns:  selectedColumns,
-    filters:  filters.filter(f => f.field && f.value !== '' && f.value !== undefined),
-    order_by: orderBy,
+    modules:  selectedModules && selectedModules.length ? selectedModules : ['enquiry'],
+    columns:  selectedColumns || [],
+    filters:  (filters || []).filter(f => f.field && f.value !== '' && f.value !== undefined && f.value !== null),
+    order_by: orderBy || '-created_at',
   }), [selectedModules, selectedColumns, filters, orderBy])
+
 
   // ── Run report ─────────────────────────────────────────────────────────────
   const runReport = useCallback(async (configOverride = null, page = 1) => {
     const config = configOverride || buildConfig()
-    if (!config.columns?.length) {
+    if (!config || !config.columns || !config.columns.length) {
       showToast('Please select at least one column to run the report.')
       return
     }
@@ -446,23 +461,74 @@ export default function CustomReports({ role = 'employee' }) {
       setResults({ ...res.data, config })
       setCurrentPage(page)
     } catch (e) {
+      console.error('Report run error:', e)
       showToast('Failed to run report. Please check your filters.')
     } finally {
       setRunning(false)
     }
   }, [buildConfig])
 
+
   // ── Run saved report ────────────────────────────────────────────────────────
   const runSaved = async (report) => {
+    // Wait for registry to load if it's still loading
+    if (loadingRegistry) {
+      showToast('Please wait, report builder is still loading...')
+      return
+    }
+    
+    if (!report) {
+      showToast('Invalid report')
+      return
+    }
+    
     setActiveReport(report.id)
-    // Load config into builder
-    const cfg = report.config
+    
+    // Extract config - handle both direct config or config wrapped in config property
+    let cfg = report.config
+    
+    // If cfg is a string, try to parse it
+    if (typeof cfg === 'string') {
+      try {
+        cfg = JSON.parse(cfg)
+      } catch (e) {
+        console.error('Failed to parse config:', e)
+        showToast('Invalid report configuration format')
+        return
+      }
+    }
+    
+    // If cfg is undefined or null, try to see if the report itself is the config
+    if (!cfg || typeof cfg !== 'object') {
+      // Check if the report has the config properties directly
+      if (report.modules || report.columns || report.filters) {
+        cfg = {
+          modules: report.modules || ['enquiry'],
+          columns: report.columns || [],
+          filters: report.filters || [],
+          order_by: report.order_by || '-created_at'
+        }
+      } else {
+        console.error('Invalid config structure:', report)
+        showToast('Invalid report configuration. Please recreate this report.')
+        return
+      }
+    }
+    
+    console.log('Loading saved report config:', cfg) // Debug log
+    
+    // Ensure cfg has the expected structure with defaults
     setSelectedModules(cfg.modules || ['enquiry'])
     setSelectedColumns(cfg.columns || [])
     setFilters(cfg.filters || [])
     setOrderBy(cfg.order_by || '-created_at')
-    await runReport(cfg)
+    
+    // Small delay to ensure state updates before running
+    setTimeout(() => {
+      runReport(cfg)
+    }, 100)
   }
+
 
   // ── Download Excel ─────────────────────────────────────────────────────────
   const downloadExcel = async () => {
@@ -490,12 +556,29 @@ export default function CustomReports({ role = 'employee' }) {
     setSaving(true)
     try {
       const config = buildConfig()
-      const res = await api.post('/custom-reports/saved/', { name, description, is_shared, config })
+      
+      // Ensure config has all required properties
+      const safeConfig = {
+        modules: config.modules || ['enquiry'],
+        columns: config.columns || [],
+        filters: (config.filters || []).filter(f => f.field && f.value !== '' && f.value !== undefined),
+        order_by: config.order_by || '-created_at',
+      }
+      
+      console.log('Saving config:', safeConfig) // Debug log
+      
+      const res = await api.post('/custom-reports/saved/', { 
+        name, 
+        description, 
+        is_shared, 
+        config: safeConfig 
+      })
       setSavedReports(prev => [res.data, ...prev])
       setShowSaveModal(false)
       showToast(`Report "${name}" saved.`)
-    } catch {
-      showToast('Failed to save report.')
+    } catch (err) {
+      console.error('Save failed:', err)
+      showToast('Failed to save report. ' + (err.response?.data?.message || ''))
     } finally {
       setSaving(false)
     }

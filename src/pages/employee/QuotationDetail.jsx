@@ -470,46 +470,173 @@ export default function QuotationDetail() {
             ]} />
           </Card>
 
-          {/* Quotation Details */}
-          <Card title="Quotation Details">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: quotation.line_items?.length ? 16 : 0 }}>
-              <InfoItem label="Quotation Amount" value={quotation.grand_total ? `INR ${Number(quotation.grand_total).toLocaleString('en-IN')}/-` : null} />
-              <InfoItem label="Quotation Number" value={quotation.quotation_number} />
-              <InfoItem label="Quotation Date"   value={quotation.created_at?.slice(0, 10)} />
-            </div>
-            {quotation.line_items?.length > 0 && (
-              <>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif', marginBottom: 10 }}>
-                  Product Details ({quotation.line_items.length})
-                </div>
-                <div style={{ overflowX: 'auto', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 750 }}>
-                    <thead>
-                      <tr style={{ background: '#122C41' }}>
-                        {['Job Code', 'Cust. Part No', 'Part No.', 'Name', 'HSN', 'Qty', 'Unit', 'Unit Price', 'Total', 'Tax %'].map(h => (
-                          <th key={h} style={{ padding: '9px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+        {/* Quotation Details */}
+        <Card title="Quotation Details">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: quotation.line_items?.length ? 16 : 0 }}>
+            <InfoItem label="Quotation Amount" value={quotation.grand_total ? `INR ${Number(quotation.grand_total).toLocaleString('en-IN')}/-` : null} />
+            <InfoItem label="Quotation Number" value={quotation.quotation_number} />
+            <InfoItem label="Quotation Date"   value={quotation.created_at?.slice(0, 10)} />
+          </div>
+          {quotation.line_items?.length > 0 && (
+            <>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif', marginBottom: 10 }}>
+                Product Details ({quotation.line_items.length})
+              </div>
+              <div style={{ 
+                overflowX: 'auto', 
+                borderRadius: 8, 
+                overflow: 'hidden', 
+                border: '1px solid #e5e7eb',
+                position: 'relative',
+              }}>
+                <table style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse', 
+                  minWidth: 900,
+                  tableLayout: 'fixed'
+                }}>
+                  <thead>
+                    <tr style={{ background: '#122C41' }}>
+                      <th style={{ width: '28%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>Product Name</th>
+                      <th style={{ width: '8%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>Job Code</th>
+                      <th style={{ width: '8%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>Cust. Part No</th>
+                      <th style={{ width: '8%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>Part No.</th>
+                      <th style={{ width: '6%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>HSN</th>
+                      <th style={{ width: '6%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'right', fontFamily: 'Lato, sans-serif' }}>Qty</th>
+                      <th style={{ width: '6%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'left', fontFamily: 'Lato, sans-serif' }}>Unit</th>
+                      <th style={{ width: '10%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'right', fontFamily: 'Lato, sans-serif' }}>Unit Price</th>
+                      <th style={{ width: '10%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'right', fontFamily: 'Lato, sans-serif' }}>Total</th>
+                      <th style={{ width: '6%', padding: '12px 10px', fontSize: '11px', fontWeight: 700, color: '#fff', textAlign: 'center', fontFamily: 'Lato, sans-serif' }}>Tax %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotation.line_items.map((item, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? '#fafafa' : '#fff' }}>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          wordWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          lineHeight: '1.4',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.product_name_snapshot || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          wordWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.job_code || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          wordWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.customer_part_no || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          wordWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.part_no || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.hsn_snapshot || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          textAlign: 'right',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.quantity || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.unit_snapshot || '—'}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          textAlign: 'right',
+                          verticalAlign: 'top',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ₹{Number(item.unit_price).toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontWeight: 600,
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#1E88E5',
+                          textAlign: 'right',
+                          verticalAlign: 'top',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ₹{Number(item.line_total).toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 10px', 
+                          fontSize: '12px', 
+                          fontFamily: 'Lato, sans-serif', 
+                          color: '#232323',
+                          textAlign: 'center',
+                          verticalAlign: 'top'
+                        }}>
+                          {item.tax_percent}%
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {quotation.line_items.map((item, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? '#fafafa' : '#fff' }}>
-                          {[item.job_code, item.customer_part_no, item.part_no, item.product_name_snapshot, item.hsn_snapshot, item.quantity, item.unit_snapshot, `₹${Number(item.unit_price).toLocaleString('en-IN')}`, `₹${Number(item.line_total).toLocaleString('en-IN')}`, `${item.tax_percent}%`].map((v, j) => (
-                            <td key={j} style={{ padding: '9px 10px', fontSize: '12px', fontFamily: 'Lato, sans-serif', color: '#232323', whiteSpace: 'nowrap' }}>{v || '—'}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ marginTop: 10, padding: '10px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb', textAlign: 'right' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>
-                    Subtotal ₹{Number(quotation.total_amount).toLocaleString('en-IN')} &nbsp;+&nbsp; Tax ₹{Number(quotation.tax_amount).toLocaleString('en-IN')} &nbsp;=&nbsp; <span style={{ color: '#1E88E5' }}>Grand Total ₹{Number(quotation.grand_total).toLocaleString('en-IN')}</span>
-                  </span>
-                </div>
-              </>
-            )}
-          </Card>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 12, padding: '12px 20px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb', textAlign: 'right' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>
+                  Subtotal: <span style={{ fontWeight: 700 }}>₹{Number(quotation.total_amount).toLocaleString('en-IN')}</span> &nbsp;|&nbsp;
+                  Tax: <span style={{ fontWeight: 700 }}>₹{Number(quotation.tax_amount).toLocaleString('en-IN')}</span> &nbsp;|&nbsp;
+                  <span style={{ color: '#1E88E5', fontSize: '14px' }}>Grand Total: ₹{Number(quotation.grand_total).toLocaleString('en-IN')}</span>
+                </span>
+              </div>
+            </>
+          )}
+        </Card>
 
           {/* Attached Files */}
           {quotation.attachments?.length > 0 && (

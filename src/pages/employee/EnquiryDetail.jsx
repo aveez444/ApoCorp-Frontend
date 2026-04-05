@@ -72,7 +72,7 @@ function InfoRow({ label, value }) {
 // ─── Edit Modal ────────────────────────────────────────────────────────────────
 function EditEnquiryModal({ enquiry, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
-  const [users, setUsers] = useState([]) // Add users state
+  const [users, setUsers] = useState([])
   const [form, setForm] = useState({
     subject: enquiry.subject || '',
     product_name: enquiry.product_name || '',
@@ -84,14 +84,13 @@ function EditEnquiryModal({ enquiry, onClose, onSaved }) {
     due_date: enquiry.due_date || '',
     target_submission_date: enquiry.target_submission_date || '',
     status: enquiry.status || 'NEW',
-    region: enquiry.region || '', // Add region
-    regional_manager: enquiry.regional_manager || '', // Add regional manager
+    region: enquiry.region || '',
+    regional_manager: enquiry.regional_manager || '',
   })
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
-  // Fetch users for regional manager dropdown
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -112,9 +111,8 @@ function EditEnquiryModal({ enquiry, onClose, onSaved }) {
       await api.patch(`/enquiries/${enquiry.id}/`, {
         ...form,
         prospective_value: form.prospective_value ? parseFloat(form.prospective_value) : null,
-        regional_manager: form.regional_manager || null, // Ensure null if empty
+        regional_manager: form.regional_manager || null,
       })
-      // Upload any new files
       if (files.length > 0) {
         setUploading(true)
         for (const f of files) {
@@ -224,7 +222,6 @@ function EditEnquiryModal({ enquiry, onClose, onSaved }) {
               </Field>
             </div>
 
-            {/* Region & Regional Manager row */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
               <Field label="Region">
                 <select
@@ -262,7 +259,6 @@ function EditEnquiryModal({ enquiry, onClose, onSaved }) {
               </Field>
             </div>
 
-            {/* Attach more files */}
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                 <span style={{ fontSize:14, fontWeight:600, color:PRIMARY, fontFamily:FONT }}>Attach Files ({files.length})</span>
@@ -303,7 +299,7 @@ function EditEnquiryModal({ enquiry, onClose, onSaved }) {
   )
 }
 
-// ─── Reject Modal ─────────────────────────────────────────────────────────────
+// ─── Reject Modal (Enquiry Lost) ─────────────────────────────────────────────────────────────
 function RejectModal({ enquiry, onClose, onSuccess }) {
   const [reason, setReason] = useState('')
   const [status, setStatus] = useState('LOST')
@@ -364,9 +360,92 @@ function RejectModal({ enquiry, onClose, onSuccess }) {
   )
 }
 
-// ─── Main Detail Page ─────────────────────────────────────────────────────────
-// NOTE: Import CreateQuoteModal at the top of this file:
-// import CreateQuoteModal from '../modals/CreateQuoteModal'
+// ─── PO Received Modal ─────────────────────────────────────────────────────────────
+function PoReceivedModal({ enquiry, onClose, onSuccess }) {
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    try {
+      await api.patch(`/enquiries/${enquiry.id}/`, { status: 'PO_RECEIVED' })
+      onSuccess()
+    } catch (e) {
+      console.error(e)
+      alert(e.response?.data ? JSON.stringify(e.response.data, null, 2) : 'Something went wrong')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}>
+      <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:440, padding:'32px', boxShadow:'0 25px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ width:52, height:52, borderRadius:'50%', background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <Icon d="M20 6L9 17l-5-5" size={24} color="#22c55e" />
+        </div>
+        <h2 style={{ textAlign:'center', fontSize:18, fontWeight:700, color:'#111827', margin:'0 0 6px', fontFamily:FONT }}>Mark as PO Received</h2>
+        <p style={{ textAlign:'center', color:'#6b7280', fontSize:13.5, margin:'0 0 22px', fontFamily:FONT }}>
+          Are you sure you want to mark enquiry <strong>{enquiry.enquiry_number}</strong> as PO Received?
+        </p>
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'11px 0', borderRadius:9, border:`1px solid ${BORDER}`, background:'#fff', color:'#4b5563', fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} style={{ flex:1, padding:'11px 0', borderRadius:9, border:'none', background:'#22c55e', color:'#fff', fontSize:13.5, fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1, fontFamily:FONT }}>
+            {saving ? 'Updating...' : 'Confirm PO Received'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Regret Modal ─────────────────────────────────────────────────────────────
+function RegretModal({ enquiry, onClose, onSuccess }) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) { alert('Please provide a reason'); return }
+    setSaving(true)
+    try {
+      await api.patch(`/enquiries/${enquiry.id}/`, { status: 'REGRET', rejection_reason: reason })
+      onSuccess()
+    } catch (e) {
+      console.error(e)
+      alert(e.response?.data ? JSON.stringify(e.response.data, null, 2) : 'Something went wrong')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}>
+      <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:440, padding:'32px', boxShadow:'0 25px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ width:52, height:52, borderRadius:'50%', background:'#fdf4ff', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <Icon d={ic.xCircle} size={24} color="#a855f7" />
+        </div>
+        <h2 style={{ textAlign:'center', fontSize:18, fontWeight:700, color:'#111827', margin:'0 0 6px', fontFamily:FONT }}>Mark as Regret</h2>
+        <p style={{ textAlign:'center', color:'#6b7280', fontSize:13.5, margin:'0 0 22px', fontFamily:FONT }}>
+          Provide a reason for regretting this enquiry
+        </p>
+
+        <div style={{ marginBottom:22 }}>
+          <label style={{ display:'block', fontSize:12, fontWeight:600, color:LABEL, marginBottom:6, fontFamily:FONT, textTransform:'uppercase', letterSpacing:'.04em' }}>Reason</label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Explain why this enquiry is being regretted…"
+            style={{ width:'100%', padding:'10px 13px', border:`1px solid ${BORDER}`, borderRadius:8, fontSize:13.5, fontFamily:FONT, color:TEXT, resize:'none', outline:'none', boxSizing:'border-box' }}
+          />
+        </div>
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'11px 0', borderRadius:9, border:`1px solid ${BORDER}`, background:'#fff', color:'#4b5563', fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} style={{ flex:1, padding:'11px 0', borderRadius:9, border:'none', background:'#a855f7', color:'#fff', fontSize:13.5, fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1, fontFamily:FONT }}>
+            {saving ? 'Updating...' : 'Confirm Regret'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Main Detail Page ─────────────────────────────────────────────────────────
 export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
@@ -376,6 +455,8 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
   const [loading, setLoading]       = useState(true)
   const [editOpen, setEditOpen]     = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [poReceivedOpen, setPoReceivedOpen] = useState(false)
+  const [regretOpen, setRegretOpen] = useState(false)
   const [quoteOpen, setQuoteOpen]   = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -405,9 +486,10 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
   const billingAddr = customer.addresses?.find(a => a.address_type === 'BILLING') || {}
 
   const canReject = ['NEW', 'NEGOTIATION'].includes(enquiry.status)
+  const canMarkPoReceived = enquiry.status === 'NEGOTIATION'
+  const canMarkRegret = ['NEW', 'NEGOTIATION'].includes(enquiry.status) && !['LOST', 'REGRET'].includes(enquiry.status)
   const isRejected = ['LOST', 'REGRET'].includes(enquiry.status)
 
-  // Get region label for display
   const getRegionLabel = (regionCode) => {
     const regionMap = {
       'NORTH': 'North',
@@ -452,11 +534,25 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
           <button onClick={() => window.print()} style={outlineBtn}>
             <Icon d={ic.print} size={14} color={PRIMARY} /> Print
           </button>
+          
+          {canMarkPoReceived && (
+            <button onClick={() => setPoReceivedOpen(true)} style={poReceivedBtn}>
+              <Icon d={ic.check} size={14} color="#16a34a" /> PO Received
+            </button>
+          )}
+          
+          {canMarkRegret && (
+            <button onClick={() => setRegretOpen(true)} style={regretBtn}>
+              <Icon d={ic.xCircle} size={14} color="#9333ea" /> Regret
+            </button>
+          )}
+          
           {canReject && (
             <button onClick={() => setRejectOpen(true)} style={rejectBtn}>
               <Icon d={ic.xCircle} size={14} color="#dc2626" /> Reject Enquiry
             </button>
           )}
+          
           {/* Create Quote Button Logic */}
           {(() => {
             const hasQuotation = enquiry.quotation !== null && enquiry.quotation !== undefined;
@@ -517,7 +613,7 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
         </div>
       </div>
 
-      {/* Sub-header info - REMOVED Region from here */}
+      {/* Sub-header info */}
       <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24, fontSize:13.5 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, color:'#374151', fontWeight:600 }}>
           <Icon d={ic.user} size={14} color="#6b7280" />
@@ -532,7 +628,7 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
 
       <div style={{ display:'flex', flexDirection:'column', gap:16, animation:'fadeUp .3s ease' }}>
 
-        {/* Enquiry Details - REMOVED Region from here */}
+        {/* Enquiry Details */}
         <div style={card}>
           <SectionTitle>Enquiry Details</SectionTitle>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:0 }}>
@@ -542,7 +638,6 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
             <InfoRow label="Phone (Landline)" value={customer.telephone_primary} />
             <InfoRow label="Phone (Mobile)" value={primaryPoc.phone || customer.telephone_primary} />
             <InfoRow label="Email ID" value={primaryPoc.email || customer.email} />
-            {/* REMOVED Region row from here */}
             <InfoRow label="City" value={billingAddr.city || customer.city} />
             <InfoRow label="State" value={billingAddr.state || customer.state} />
           </div>
@@ -551,7 +646,7 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
           )}
         </div>
 
-        {/* Requirement Details - FIXED to show correct fields */}
+        {/* Requirement Details */}
         <div style={card}>
           <SectionTitle>Requirement Details</SectionTitle>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:0 }}>
@@ -695,6 +790,22 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
         />
       )}
 
+      {poReceivedOpen && (
+        <PoReceivedModal
+          enquiry={enquiry}
+          onClose={() => setPoReceivedOpen(false)}
+          onSuccess={() => { setPoReceivedOpen(false); setToast('Enquiry marked as PO Received!'); load() }}
+        />
+      )}
+
+      {regretOpen && (
+        <RegretModal
+          enquiry={enquiry}
+          onClose={() => setRegretOpen(false)}
+          onSuccess={() => { setRegretOpen(false); setToast('Enquiry marked as Regret.'); load() }}
+        />
+      )}
+
       {quoteOpen && (
         <CreateQuoteModal
           open={quoteOpen}
@@ -737,6 +848,18 @@ const rejectBtn = {
   display:'flex', alignItems:'center', gap:6,
   padding:'8px 18px', border:'1.5px solid #fca5a5',
   borderRadius:8, background:'#fff', color:'#dc2626',
+  fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:FONT,
+}
+const poReceivedBtn = {
+  display:'flex', alignItems:'center', gap:6,
+  padding:'8px 18px', border:'1.5px solid #22c55e',
+  borderRadius:8, background:'#fff', color:'#16a34a',
+  fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:FONT,
+}
+const regretBtn = {
+  display:'flex', alignItems:'center', gap:6,
+  padding:'8px 18px', border:'1.5px solid #a855f7',
+  borderRadius:8, background:'#fff', color:'#9333ea',
   fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:FONT,
 }
 const createQuoteBtn = {

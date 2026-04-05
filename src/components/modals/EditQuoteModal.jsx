@@ -265,7 +265,16 @@ export default function EditQuoteModal({ open, onClose, quotation, onSuccess }) 
       
       // Only include line_items if they changed (compare with original)
       const originalLineItems = quotation.line_items || []
-      const lineItemsChanged = JSON.stringify(lineItems) !== JSON.stringify(originalLineItems)
+      const lineItemsChanged = JSON.stringify(lineItems.map(item => ({
+        ...item,
+        line_total: undefined,
+        tax_amount: undefined,
+      }))) !== JSON.stringify(originalLineItems.map(item => ({
+        ...item,
+        line_total: undefined,
+        tax_amount: undefined,
+      })))
+      
       if (lineItemsChanged) {
         payload.line_items = lineItems.map(item => ({
           job_code: item.job_code || '',
@@ -286,26 +295,24 @@ export default function EditQuoteModal({ open, onClose, quotation, onSuccess }) 
       const originalTerms = quotation.terms || {}
       const termsChanged = JSON.stringify(terms) !== JSON.stringify(originalTerms)
       if (termsChanged) {
-        payload.terms = {
-          payment_terms: terms.payment_terms,
-          sales_tax: terms.sales_tax,
-          sup_charges: terms.sup_charges,
-          excise_duty: terms.excise_duty,
-          price_basis: terms.price_basis,
-          freight: terms.freight,
-          warranty: terms.warranty,
-          insurance: terms.insurance,
-          delivery: terms.delivery,
-          packing_forwarding: terms.packing_forwarding,
-          validity: terms.validity,
-          decision_expected: terms.decision_expected,
-          remarks: terms.remarks,
-        }
+        payload.terms = { ...terms }
       }
       
-      await api.patch(`/quotations/${quotation.id}/`, payload)
+      // Only send PATCH if there are changes to non-file fields
+      if (Object.keys(payload).length > 0) {
+        await api.patch(`/quotations/${quotation.id}/`, payload)
+      }
       
-      // Upload new files...
+      // Upload new files using the upload_file endpoint
+      if (files.length > 0) {
+        for (const file of files) {
+          const formData = new FormData()
+          formData.append('file', file)
+          await api.post(`/quotations/${quotation.id}/upload_file/`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        }
+      }
       
       onSuccess?.({ quotationNumber: quotation.quotation_number, wasApproved })
       onClose()
