@@ -163,6 +163,14 @@ export default function AddCustomer({ basePath = '/employee/customers' }) {
   const validate = () => {
     const e = {}
     if (!form.company_name.trim()) e.company_name = 'Required'
+    if (!form.telephone_primary.trim()) e.telephone_primary = 'Required'
+    if (!form.email.trim()) e.email = 'Required'
+    if (!form.website.trim()) e.website = 'Required'
+    if (!form.country.trim()) e.country = 'Required'
+    if (!form.state.trim()) e.state = 'Required'
+    if (!form.city.trim()) e.city = 'Required'
+    if (!form.pan_number.trim()) e.pan_number = 'Required'
+    if (!form.gst_number.trim()) e.gst_number = 'Required'
     if (!billing.entity_name.trim()) e.billing_entity = 'Billing entity name required'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -247,30 +255,30 @@ export default function AddCustomer({ basePath = '/employee/customers' }) {
           </div>
 
           {/* row: phone, phone, email */}
-          <FloatField label="Telephone Primary">
+          <FloatField label="Telephone Primary" required error={errors.telephone_primary}>
             <FInput value={form.telephone_primary} onChange={e=>sf('telephone_primary',e.target.value)} placeholder="020 - 998 998" />
           </FloatField>
           <FloatField label="Telephone Secondary">
             <FInput value={form.telephone_secondary} onChange={e=>sf('telephone_secondary',e.target.value)} placeholder="+91 87878 76767" />
           </FloatField>
-          <FloatField label="Email ID">
+          <FloatField label="Email ID" required error={errors.email}>
             <FInput value={form.email} onChange={e=>sf('email',e.target.value)} placeholder="Support@apocorp.com" type="email" />
           </FloatField>
 
           {/* row: website, country, region */}
-          <FloatField label="Company Website">
+          <FloatField label="Company Website" required error={errors.website}>
             <FInput value={form.website} onChange={e=>sf('website',e.target.value)} placeholder="Apocorp.com" />
           </FloatField>
-          <FloatField label="Country">
+          <FloatField label="Country" required error={errors.country}>
             <FInput value={form.country} onChange={e=>sf('country',e.target.value)} placeholder="India" />
           </FloatField>
           <FloatField label="Region">
             <FInput value={form.region} onChange={e=>sf('region',e.target.value)} placeholder="North, South, etc." />
           </FloatField>
-          <FloatField label="State">
+          <FloatField label="State" required error={errors.state}>
             <FInput value={form.state} onChange={e=>sf('state',e.target.value)} placeholder="Maharashtra" />
           </FloatField>
-          <FloatField label="City">
+          <FloatField label="City" required error={errors.city}>
             <FInput value={form.city} onChange={e=>sf('city',e.target.value)} placeholder="Mumbai" />
           </FloatField>
           <FloatField label="Tier">
@@ -280,10 +288,10 @@ export default function AddCustomer({ basePath = '/employee/customers' }) {
           </FloatField>
 
           {/* row: PAN, GST, CR Period, TDS, Currency */}
-          <FloatField label="PAN Number">
+          <FloatField label="PAN Number" required error={errors.pan_number}>
             <FInput value={form.pan_number} onChange={e=>sf('pan_number',e.target.value)} placeholder="NA" />
           </FloatField>
-          <FloatField label="GST Number">
+          <FloatField label="GST Number" required error={errors.gst_number}>
             <FInput value={form.gst_number} onChange={e=>sf('gst_number',e.target.value)} placeholder="NA" />
           </FloatField>
           <FloatField label="Credit Period (Days)">
@@ -292,7 +300,7 @@ export default function AddCustomer({ basePath = '/employee/customers' }) {
           <FloatField label="TDS %">
             <FInput value={form.tds_percentage} onChange={e=>sf('tds_percentage',e.target.value)} placeholder="NA" type="number" />
           </FloatField>
-          <FloatField label="Currency">
+          <FloatField label="Currency" required error={errors.CURRENCY}>
             <FSelect value={form.default_currency} onChange={e=>sf('default_currency',e.target.value)}>
               {CURRENCY.map(c => <option key={c}>{c}</option>)}
             </FSelect>
@@ -369,7 +377,7 @@ export default function AddCustomer({ basePath = '/employee/customers' }) {
                 )}
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <FloatField label="Full Name" required>
+                <FloatField label="Full Name">
                   <FInput value={poc.name} onChange={e=>setPocs(p=>p.map((x,idx)=>idx===i?{...x,name:e.target.value}:x))} placeholder="Ahmed Memon" />
                 </FloatField>
                 <FloatField label="Designation">

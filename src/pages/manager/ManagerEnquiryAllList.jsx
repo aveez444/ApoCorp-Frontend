@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import NewEnquiryModal from '../../components/modals/NewEnquiryModal'
+import { printEnquiryReport } from '../../components/PrintEnquiryReport'
+import { exportToPDF } from '../../components/ExportToPDF'
 
 const STATUS_COLORS = {
   'NEW':         { bg: '#E2F1FF', color: '#1E88E5', dot: '#1E88E5', label: 'New Enquiry' },
@@ -213,6 +215,14 @@ export default function ManagerEnquiryAllList() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'all-enquiries.csv'; a.click()
   }
 
+  const handlePrint = () => {
+  printEnquiryReport(filtered, null) // Pass null for stats since this component doesn't have stats
+}
+
+  const handlePDFDownload = () => {
+    exportToPDF(filtered, null) // Pass null for stats since this component doesn't have stats
+  }
+
   return (
     <div style={{ fontFamily: 'Lato, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
@@ -228,26 +238,36 @@ export default function ManagerEnquiryAllList() {
             Enquiry Stats ({filtered.length})
           </h2>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => window.print()} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
-            </svg>
-            Print
-          </button>
-          <button onClick={handleExport} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-            </svg>
-            Export to Excel
-          </button>
-          <button onClick={() => setShowModal(true)} style={primaryBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Enquiry
-          </button>
-        </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={handlePrint} style={outlineBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              Print Report
+            </button>
+            <button onClick={handlePDFDownload} style={outlineBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 10v6m0 0l-3-3m3 3l3-3m-6 6h6M4 4h16v16H4z" />
+              </svg>
+              Download PDF
+            </button>
+            <button onClick={handleExport} style={outlineBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              Export to Excel
+            </button>
+            <button onClick={() => setShowModal(true)} style={primaryBtn}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Enquiry
+            </button>
+          </div>
       </div>
 
       {/* Search row */}

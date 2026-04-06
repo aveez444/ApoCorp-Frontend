@@ -54,6 +54,7 @@ export default function Customers({ basePath = '/employee/customers' }) {
     offshore: 0,
     inactive: 0
   })
+  const [statsLoading, setStatsLoading] = useState(true)
 
   // Filter states
   const [search, setSearch] = useState("")
@@ -87,7 +88,33 @@ export default function Customers({ basePath = '/employee/customers' }) {
     return () => clearTimeout(timer)
   }, [locationFilter])
 
-  // Fetch customers with all filters from backend
+  // Fetch stats only (using the new stats endpoint)
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsLoading(true)
+      const params = {}
+      
+      // Add filters if they exist
+      if (debouncedSearch) params.q = debouncedSearch
+      if (debouncedTier) params.tier = debouncedTier
+      if (debouncedLocation) params.location = debouncedLocation
+      
+      const res = await api.get('/customers/stats/', { params })
+      
+      setStats({
+        active: res.data.active,
+        domestic: res.data.domestic,
+        offshore: res.data.offshore,
+        inactive: res.data.inactive,
+      })
+    } catch (error) {
+      console.error('Error fetching customer stats:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [debouncedSearch, debouncedTier, debouncedLocation])
+
+  // Fetch customers for display (paginated)
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true)
@@ -106,31 +133,6 @@ export default function Customers({ basePath = '/employee/customers' }) {
       const fetchedCustomers = res.data.results || []
       setCustomers(fetchedCustomers)
       setTotalCustomers(res.data.total)
-      
-      // For stats, we need to fetch all customers without pagination
-      // Or better, create a stats endpoint. For now, we'll fetch with a larger limit
-      const statsParams = {
-        page: 1,
-        limit: 10000,
-        detail: 'true'
-      }
-      if (debouncedSearch) statsParams.q = debouncedSearch
-      if (debouncedTier) statsParams.tier = debouncedTier
-      if (debouncedLocation) statsParams.location = debouncedLocation
-      
-      const statsRes = await api.get('/customers/search/', { params: statsParams })
-      const allFilteredCustomers = statsRes.data.results || []
-      
-      // Calculate stats from filtered data
-      setStats({
-        active: allFilteredCustomers.filter(c => c.is_active && !c.is_locked).length,
-        domestic: allFilteredCustomers.filter(c => ['india', 'in'].includes((c.country || '').toLowerCase())).length,
-        offshore: allFilteredCustomers.filter(c => { 
-          const co = (c.country || '').toLowerCase(); 
-          return co && !['india', 'in'].includes(co) 
-        }).length,
-        inactive: allFilteredCustomers.filter(c => c.is_locked || !c.is_active).length,
-      })
     } catch (error) {
       console.error('Error fetching customers:', error)
     } finally {
@@ -138,10 +140,11 @@ export default function Customers({ basePath = '/employee/customers' }) {
     }
   }, [debouncedSearch, debouncedTier, debouncedLocation])
 
-  // Fetch when filters change
+  // Fetch both stats and customers when filters change
   useEffect(() => {
+    fetchStats()
     fetchCustomers()
-  }, [fetchCustomers])
+  }, [fetchStats, fetchCustomers])
 
   // Clear all filters
   const clearFilters = () => {

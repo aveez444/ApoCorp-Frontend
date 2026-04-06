@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import NewEnquiryModal from '../../components/modals/NewEnquiryModal'
 import Toast from '../../components/Toast'
+import { printEnquiryReport } from '../../components/PrintEnquiryReport'
+import { exportToPDF } from '../../components/ExportToPDF'
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -125,6 +127,14 @@ export default function ListEnquiry({ basePath = '/employee/enquiries' }) {
     a.download = 'enquiries.csv'; a.click()
   }
 
+  const handlePrint = () => {
+  printEnquiryReport(filtered, null) // Pass null for stats since ListEnquiry doesn't have stats
+}
+
+const handlePDFDownload = () => {
+  exportToPDF(filtered, null) // Pass null for stats since ListEnquiry doesn't have stats
+}
+
   return (
     <div style={{ fontFamily:FONT, color:'#1a1a2e', minHeight:'100vh' }}>
       <style>{`
@@ -157,10 +167,22 @@ export default function ListEnquiry({ basePath = '/employee/enquiries' }) {
             </h1>
           </div>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => window.print()} style={actionBtn}><Icon d={ic.print} size={13} color="#475569" /> Print</button>
-          <button onClick={handleExport} style={actionBtn}><Icon d={ic.export} size={13} color="#475569" /> Export to Excel</button>
-          <button onClick={() => setModalOpen(true)} style={primaryBtn}><Icon d={ic.plus} size={14} color="#fff" /> New Enquiry</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={handlePrint} style={actionBtn}>
+            <Icon d={ic.print} size={13} color="#475569" /> Print Report
+          </button>
+          <button onClick={handlePDFDownload} style={actionBtn}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 10v6m0 0l-3-3m3 3l3-3m-6 6h6M4 4h16v16H4z" />
+            </svg>
+            Download PDF
+          </button>
+          <button onClick={handleExport} style={actionBtn}>
+            <Icon d={ic.export} size={13} color="#475569" /> Export to Excel
+          </button>
+          <button onClick={() => setModalOpen(true)} style={primaryBtn}>
+            <Icon d={ic.plus} size={14} color="#fff" /> New Enquiry
+          </button>
         </div>
       </div>
 

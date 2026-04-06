@@ -57,30 +57,24 @@ function Field({ label, children, style }) {
     </div>
   )
 }
+
+// In NewEnquiryModal.jsx - Update SearchableCustomerSelect component
+
 function SearchableCustomerSelect({ value, onChange, placeholder }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [customers, setCustomers] = useState([])
-  const [selectedCustomerObj, setSelectedCustomerObj] = useState(null) // Store selected customer object
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [initialLoaded, setInitialLoaded] = useState(false)
+  const [initialLoaded, setInitialLoaded] = useState(false) // Track if initial load done
   
   const wrapperRef = useRef(null)
   const inputRef = useRef(null)
   const listRef = useRef(null)
   const searchTimeoutRef = useRef(null)
-
-  // Update selectedCustomerObj when value prop changes from parent
-  useEffect(() => {
-    if (value && !selectedCustomerObj) {
-      // If we have a value but no selected object, we might need to fetch it
-      // But for now, we'll rely on the object being passed from selection
-    }
-  }, [value, selectedCustomerObj])
 
   // Load initial customers when dropdown opens
   const loadInitialCustomers = async () => {
@@ -130,7 +124,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Debounced search
+  // Debounced search (only when there's a search term)
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -138,11 +132,13 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     
     if (!isOpen) return
     
+    // If there's a search term, search; otherwise show initial customers
     if (searchTerm) {
       searchTimeoutRef.current = setTimeout(() => {
         searchCustomers(searchTerm, 1, false)
       }, 300)
     } else {
+      // Load initial customers when dropdown opens and no search term
       loadInitialCustomers()
     }
     
@@ -155,6 +151,7 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
       if (searchTerm) {
         searchCustomers(searchTerm, page + 1, true)
       } else {
+        // Load more initial customers
         setLoading(true)
         api.get('/customers/search/', {
           params: { q: '', page: page + 1, limit: 20 }
@@ -183,15 +180,18 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     setIsOpen(false)
     setSearchTerm('')
     setHighlightedIndex(-1)
+    // Don't reset customers immediately to avoid flicker, but clear initialLoaded flag
+    // so next open loads fresh
     setInitialLoaded(false)
   }
 
+  // Get selected customer
+  const selectedCustomer = customers.find(c => String(c.id) === value)
+
   const handleSelect = (customerId, customerData) => {
-    setSelectedCustomerObj(customerData) // Store the selected customer object
     onChange(customerId, customerData)
     handleClose()
     setCustomers([]) // Clear results
-    setSearchTerm('') // Clear search term
   }
 
   const handleKeyDown = (e) => {
@@ -227,8 +227,8 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     }
   }
 
-  // Style definitions
-  const selectBaseStyle = {
+  // Style definitions (same as before)
+  const selectBase = {
     border: `1px solid ${BORDER}`,
     borderRadius: 7,
     padding: '12px 14px',
@@ -309,32 +309,19 @@ function SearchableCustomerSelect({ value, onChange, placeholder }) {
     fontFamily: FONT,
   }
 
-  // Determine what to show in the input
-  const getInputValue = () => {
-    if (isOpen) {
-      return searchTerm
-    }
-    if (selectedCustomerObj) {
-      return selectedCustomerObj.company_name
-    }
-    return ''
-  }
-
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       <input
         ref={inputRef}
         type="text"
-        style={selectBaseStyle}
+        style={selectBase}
         placeholder={placeholder || 'Type to search or select customer...'}
-        value={getInputValue()}
+        value={isOpen ? searchTerm : (selectedCustomer?.company_name || '')}
         onChange={(e) => {
           setSearchTerm(e.target.value)
           setIsOpen(true)
           setHighlightedIndex(-1)
-          // If the input is cleared, clear the selected customer
-          if (!e.target.value && selectedCustomerObj) {
-            setSelectedCustomerObj(null)
+          if (!e.target.value && !selectedCustomer) {
             onChange('', null)
           }
         }}
@@ -570,6 +557,7 @@ function FileCard({ file, onRemove, active }) {
 // ─── Main Modal ────────────────────────────────────────────────────────────────
 export default function NewEnquiryModal({ open, onClose, onSuccess }) {
   const [step, setStep] = useState(1)
+  const [customers, setCustomers] = useState([])
   const [users, setUsers] = useState([])
   const [files, setFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -615,38 +603,28 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
     emd_return_date: '',
   })
 
-  // Update the useEffect in NewEnquiryModal component
+  // Update the reset in useEffect
   useEffect(() => {
     if (!open) return
-    
     const fetchData = async () => {
       try {
-        // Remove the customers fetch - we don't need it since SearchableCustomerSelect handles it
-        const usersRes = await api.get('/accounts/users/?role=all')
+        const [custRes, usersRes] = await Promise.all([
+          api.get('/customers/'),
+          api.get('/accounts/users/?role=all'),
+        ])
+        setCustomers(custRes.data?.results || custRes.data || [])
         setUsers(usersRes.data || [])
       } catch (error) {
         console.error('Error fetching modal data:', error)
       }
     }
-    
     fetchData()
 
     // Reset all
     setStep(1)
     setFiles([])
     setActiveFileIdx(null)
-    setS1({ 
-      customer: '', 
-      enquiry_date: today, 
-      _poc: '', 
-      _email: '', 
-      _phone_mobile: '', 
-      _phone_landline: '', 
-      _country: '', 
-      _state: '', 
-      _city: '', 
-      _address: '' 
-    })
+    setS1({ customer: '', enquiry_date: today, _poc: '', _email: '', _phone_mobile: '', _phone_landline: '', _country: '', _state: '', _city: '', _address: '' })
     setS2({ 
       subject: '', 
       product_name: '', 
@@ -741,6 +719,61 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
     if (!s1.customer) { 
       alert('Please select a customer.'); 
       return 
+    }
+    // Email Subject validation
+    if (!s2.subject || !s2.subject.trim()) {
+      alert('Please enter Email Subject.');
+      return;
+    }
+     // Product / Item validation
+    if (!s2.product_name || !s2.product_name.trim()) {
+      alert('Please enter Product / Item.');
+      return;
+    }
+     // Currency validation
+    if (!s2.currency) {
+      alert('Please select a currency.');
+      return;
+    }   
+    // prospective value
+    if (!s2.prospective_value) {
+      alert('Please enter quotation amount.');
+      return;
+    }
+     // Enquiry Type validation
+    if (!s2.enquiry_type) {
+      alert('Please select a Enquiry Type.');
+      return;
+    }
+    // Enquiry Type validation
+    if (!s2.source_of_enquiry) {
+      alert('Please select a Source of Enquiry.');
+      return;
+    }
+
+    // Due Date validation
+    if (!s2.due_date) {
+      alert('Please select a Due Date.');
+      return;
+    }
+    // Target Submission Date validation
+    if (!s2.target_submission_date) {
+      alert('Please select a Target Submission Date.');
+      return;
+    }
+    // Region validation
+    if (!s2.region) {
+      alert('Please select a Region.');
+      return;
+    }
+    // Regional Manager validation
+    if (!s2.regional_manager) {
+      alert('Please select a Regional Manager.');
+      return;
+    }
+    if (!files || files.length === 0) {
+    alert('Please attach at least one file.');
+    return;
     }
     
     // Validate tender fields if required
@@ -907,7 +940,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                   {/* Entity + POC */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                   
-                      <Field label="Entity Name *">
+                      <Field label={
+                                    <>
+                                      Entity Name <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                         <SearchableCustomerSelect
                           value={s1.customer}
                           onChange={handleCustomerSelect}
@@ -987,7 +1024,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
                   {/* Email Subject */}
-                  <Field label="Email Subject">
+                  <Field label={
+                                    <>
+                                      email subject <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                     <textarea
                       style={{ ...baseInput, resize: 'vertical', minHeight: 78 }}
                       placeholder="Enter the email subject / description"
@@ -998,7 +1039,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
 
                   {/* Product + Currency + Value */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', gap: 18 }}>
-                    <Field label="Product / Item">
+                    <Field label={
+                                    <>
+                                      Product / Item <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  } >
                       <input
                         style={baseInput}
                         placeholder="Enter product or item"
@@ -1006,15 +1051,24 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                         onChange={e => setS2(p => ({ ...p, product_name: e.target.value }))}
                       />
                     </Field>
-                    <Field label="Currency">
+                    <Field label={
+                                    <>
+                                      Currency <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  } >
                       <select style={selectBase} value={s2.currency} onChange={e => setS2(p => ({ ...p, currency: e.target.value }))}>
+                        <option value="">-- Select Currency --</option> 
                         <option value="INR">INR (₹)</option>
                         <option value="USD">USD ($)</option>
                         <option value="EUR">EUR (€)</option>
                         <option value="GBP">GBP (£)</option>
                       </select>
                     </Field>
-                    <Field label="Quotation Amount">
+                    <Field label={
+                                    <>
+                                      Quotation Amount <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                       <input
                         style={baseInput}
                         type="number"
@@ -1028,7 +1082,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
 
                   {/* Enquiry Type + Source + Priority */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 18 }}>
-                    <Field label="Enquiry Type">
+                    <Field label={
+                                    <>
+                                      Enquiry Type <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  } >
                       <select 
                         style={selectBase} 
                         value={s2.enquiry_type} 
@@ -1043,14 +1101,36 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                         <option value="TENDER">Tender</option>
                       </select>
                     </Field>
-                    <Field label="Source of Enquiry">
+
+                    <Field label={
+                                    <>
+                                      Source of Enquiry <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  } >
+                      <select 
+                        style={selectBase} 
+                        value={s2.source_of_enquiry} 
+                        onChange={e => setS2(p => ({ ...p, source_of_enquiry: e.target.value }))}
+                      >
+                        <option value="">— Select —</option>
+                        <option value="PRINCIPAL">Principal</option>
+                        <option value="SALES ENGINEER">Sales Engineer</option>
+                        <option value="WEB">Web</option>
+                        <option value="TENDER">Tender</option>
+                        <option value="MISC">Misc</option>
+                        <option value="PRO-ACTIVE">Pro-Active</option>
+                        <option value="REACTIVE">Reactive</option>
+                        <option value="DIRECT">Direct</option>
+                      </select>
+                    </Field>
+                    {/* <Field label="Source of Enquiry">
                       <input
                         style={baseInput}
                         placeholder="e.g. Sales Engineer"
                         value={s2.source_of_enquiry}
                         onChange={e => setS2(p => ({ ...p, source_of_enquiry: e.target.value }))}
                       />
-                    </Field>
+                    </Field> */}
                     <Field label="Priority">
                       <select style={selectBase} value={s2.priority} onChange={e => setS2(p => ({ ...p, priority: e.target.value }))}>
                         <option value="LOW">Low</option>
@@ -1160,10 +1240,18 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
 
                   {/* Due Date + Target Submission */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                    <Field label="Due Date">
+                    <Field label={
+                                    <>
+                                      Due Date <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                       <input type="date" style={baseInput} value={s2.due_date} onChange={e => setS2(p => ({ ...p, due_date: e.target.value }))} />
                     </Field>
-                    <Field label="Target Date Submission">
+                    <Field label={
+                                    <>
+                                      Target Submission Date <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                       <input type="date" style={baseInput} value={s2.target_submission_date} onChange={e => setS2(p => ({ ...p, target_submission_date: e.target.value }))} />
                     </Field>
                   </div>
@@ -1176,7 +1264,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
 
                   {/* Region dropdown */}
-                  <Field label="Region">
+                  <Field label={
+                                    <>
+                                      Region <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
                     <select
                       style={selectBase}
                       value={s2.region}
@@ -1192,7 +1284,11 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
                   </Field>
 
                   {/* Regional Manager dropdown */}
-            <Field label="Regional Manager">
+            <Field label={
+                                    <>
+                                      Regional Manager <span style={{ color: 'red' }}>*</span>
+                                    </>
+                                  }>
               <select
                 style={selectBase}
                 value={s2.regional_manager}
@@ -1218,7 +1314,7 @@ export default function NewEnquiryModal({ open, onClose, onSuccess }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <span style={{ fontSize: '15px', fontWeight: 700, color: PRIMARY, fontFamily: FONT }}>
-                    Files ({files.length})
+                    Files ({files.length})<span style={{ color: 'red' }}>*</span>
                   </span>
                   <button
                     type="button"

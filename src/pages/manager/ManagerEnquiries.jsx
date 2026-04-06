@@ -4,6 +4,8 @@ import api from '../../api/axios'
 import NewEnquiryModal from '../../components/modals/NewEnquiryModal'
 import Toast from '../../components/Toast'
 import banner from '../../assets/dashboard-banner.png'
+import { printEnquiryReport } from '../../components/PrintEnquiryReport'
+import { exportToPDF } from '../../components/ExportToPDF'
 
 const PRIMARY = '#122C41'
 const BORDER  = '#e2e8f0'
@@ -263,16 +265,26 @@ export default function ManagerEnquiries() {
     a.click()
   }
 
+    // Simplified print handler
+  const handlePrint = () => {
+    printEnquiryReport(filtered, stats)
+  }
+
+  // PDF download handler
+  const handlePDFDownload = () => {
+    exportToPDF(filtered, stats)
+  }
+
   const statCards = [
     { label: 'Pending Enquiry',   value: stats?.pending ?? '—',             trend: 'up',   trendLabel: '5% Increment since past week' },
     { label: 'Quoted Enquiry',    value: stats?.quoted ?? '—' },
     { label: 'Under Negotiation', value: stats?.under_negotiation ?? '—' },
-    {
-      label: 'Enquiry Lost',
-      value: stats?.lost !== undefined ? `${Math.round((stats.lost / Math.max(stats.total, 1)) * 100)}%` : '—',
-      trend: 'down',
-      trendLabel: stats?.lost !== undefined ? `Dropped by ${stats.lost} since last month` : undefined,
-      highlight: true,
+    { 
+      label: 'Enquiry Lost', 
+      value: stats?.lost ?? '—',  // ← Fixed: shows actual number, not percentage
+      trend: 'down', 
+      trendLabel: stats?.lost !== undefined ? `Dropped by ${stats.lost} since last month` : undefined, 
+      highlight: true 
     },
   ]
 
@@ -438,20 +450,26 @@ export default function ManagerEnquiries() {
               </svg>
             </button>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn-outline" onClick={() => window.print()}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
-              </svg>
-              Print
-            </button>
-            <button className="btn-outline" onClick={handleExport}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" />
-              </svg>
-              Export to Excel
-            </button>
-          </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn-outline" onClick={handlePrint}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
+                </svg>
+                Print Report
+              </button>
+              <button className="btn-outline" onClick={handlePDFDownload}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m-6 6h6M4 4h16v16H4z" />
+                </svg>
+                Download PDF
+              </button>
+              <button className="btn-outline" onClick={handleExport}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" />
+                </svg>
+                Export to Excel
+              </button>
+            </div>
         </div>
 
         {/* Search row */}

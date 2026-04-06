@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axios'
+import ProformaPDFPanel from '../../components/ProformaPDFPanel';   // Adjust path if needed
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -360,41 +361,55 @@ export default function ProformaDetail({ basePath = '/employee/proforma-invoices
         <PaymentModal proforma={proforma} onClose={() => setShowPayModal(false)} onSuccess={load} />
       )}
 
-      {/* PAGE HEADER */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 28px', borderBottom:'1px solid #e8edf2', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={() => navigate(-1)} style={{ width:34, height:34, borderRadius:8, border:'1.5px solid #e2e8f0', background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Icon d={ic.arrowLeft} size={15} color="#64748b" />
-          </button>
-          <div>
-            <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:PRIMARY }}>Proforma Invoice</h1>
-            {proforma && <span style={{ fontSize:12.5, color:'#9ca3af' }}>{proforma.proforma_number}</span>}
+
+          {/* PAGE HEADER */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 28px', borderBottom:'1px solid #e8edf2', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <button onClick={() => navigate(-1)} style={{ width:34, height:34, borderRadius:8, border:'1.5px solid #e2e8f0', background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <Icon d={ic.arrowLeft} size={15} color="#64748b" />
+            </button>
+            <div>
+              <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:PRIMARY }}>Proforma Invoice</h1>
+              {proforma && <span style={{ fontSize:12.5, color:'#9ca3af' }}>{proforma.proforma_number}</span>}
+            </div>
+            {proforma?.status && (
+              <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11.5, fontWeight:700, color:statusColor.color, background:statusColor.bg }}>
+                {proforma.status}
+              </span>
+            )}
           </div>
-          {proforma?.status && (
-            <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11.5, fontWeight:700, color:statusColor.color, background:statusColor.bg }}>
-              {proforma.status}
-            </span>
-          )}
+
+          {/* ACTION BUTTONS */}
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            {proforma?.status === 'DRAFT' && (
+              <button onClick={handleSend} disabled={saving}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:9, border:'none', background:ACCENT, color:'#fff', fontSize:13.5, fontWeight:600, cursor:saving?'not-allowed':'pointer', fontFamily:FONT }}>
+                <Icon d={ic.send} size={14} color="#fff" />
+                {saving ? 'Sending…' : 'Send Invoice'}
+              </button>
+            )}
+
+            {['SENT','PARTIAL'].includes(proforma?.status) && (
+              <button onClick={() => setShowPayModal(true)}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:9, border:'none', background:'#16a34a', color:'#fff', fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>
+                <Icon d={ic.dollar} size={14} color="#fff" /> Add Payment
+              </button>
+            )}
+
+            {/* ←←← NEW: Proforma PDF Panel (replaces old Print button) */}
+            {proforma && (
+              <ProformaPDFPanel
+                proformaId={proforma.id}
+                proformaNumber={proforma.proforma_number}
+                status={proforma.status}
+                customerEmail={proforma.customer_detail?.email || customerData?.email || ''}
+                customerName={proforma.customer_detail?.company_name || customerData?.company_name || ''}
+                onProformaSent={load}           // This will refresh the page after marking as SENT
+              />
+            )}
+          </div>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
-          {proforma?.status === 'DRAFT' && (
-            <button onClick={handleSend} disabled={saving}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:9, border:'none', background:ACCENT, color:'#fff', fontSize:13.5, fontWeight:600, cursor:saving?'not-allowed':'pointer', fontFamily:FONT }}>
-              <Icon d={ic.send} size={14} color="#fff" />
-              {saving ? 'Sending…' : 'Send Invoice'}
-            </button>
-          )}
-          {['SENT','PARTIAL'].includes(proforma?.status) && (
-            <button onClick={() => setShowPayModal(true)}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:9, border:'none', background:'#16a34a', color:'#fff', fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>
-              <Icon d={ic.dollar} size={14} color="#fff" /> Add Payment
-            </button>
-          )}
-          <button onClick={() => window.print()} style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', borderRadius:9, border:`1.5px solid ${PRIMARY}`, background:'#fff', color:PRIMARY, fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>
-            <Icon d={ic.print} size={14} color={PRIMARY} /> Print
-          </button>
-        </div>
-      </div>
+
 
       <div style={{ padding:'20px 28px' }}>
 

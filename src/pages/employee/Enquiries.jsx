@@ -4,6 +4,8 @@ import api from "../../api/axios"
 import NewEnquiryModal from "../../components/modals/NewEnquiryModal"
 import Toast from "../../components/Toast"
 import banner from "../../assets/dashboard-banner.png"
+import { printEnquiryReport } from "../../components/PrintEnquiryReport"
+import { exportToPDF } from "../../components/ExportToPDF"
 
 const PRIMARY = "#122C41"
 const BORDER = "#e2e8f0"
@@ -121,7 +123,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
   const [search, setSearch] = useState("")
   const [location, setLocation] = useState("")
   const [date, setDate] = useState("")
-  const [status, setStatus] = useState("") // New status filter state
+  const [status, setStatus] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -140,7 +142,6 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
 
   // Filtered enquiries based on search inputs and status
   const filteredEnquiries = useMemo(() => {
-    // First filter
     const filtered = enquiries.filter(enquiry => {
       const searchTerm = search.toLowerCase().trim()
       const matchesSearch = searchTerm === "" || 
@@ -158,13 +159,11 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
 
       const matchesDate = date === "" || enquiry.enquiry_date === date
       
-      // Status filter
       const matchesStatus = status === "" || enquiry.status === status
 
       return matchesSearch && matchesLocation && matchesDate && matchesStatus
     })
 
-    // Sort by created_at descending (newest first)
     return filtered.sort((a, b) => {
       if (!a.created_at && !b.created_at) return 0
       if (!a.created_at) return 1
@@ -186,6 +185,17 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
     setStatus("")
   }
 
+    // Simplified print handler
+  const handlePrint = () => {
+    printEnquiryReport(filteredEnquiries, stats)
+  }
+
+    // Optional: PDF download handler
+  const handlePDFDownload = () => {
+    exportToPDF(filteredEnquiries, stats)
+  }
+
+
   const statCards = [
     { label: "Pending Enquiry",   value: stats.pending || 0,            trend: "up",   trendLabel: "5% Increment since past week" },
     { label: "Quoted Enquiry",    value: stats.quoted || 0 },
@@ -205,7 +215,7 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n")
     const a = document.createElement("a")
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
-    a.download = "enquiries.csv"
+    a.download = `enquiries_${new Date().toISOString().split('T')[0]}.csv`
     a.click()
   }
 
@@ -479,11 +489,11 @@ export default function Enquiries({ basePath = "/employee/enquiries" }) {
             </button>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button className="btn-outline" onClick={() => window.print()}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button className="btn-outline" onClick={handlePrint}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
               </svg>
-              Print
+              Print / PDF
             </button>
             <button className="btn-outline" onClick={handleExport}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
