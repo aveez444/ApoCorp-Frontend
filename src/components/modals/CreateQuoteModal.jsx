@@ -479,7 +479,7 @@ export default function CreateQuoteModal({ open, onClose, enquiry, onSuccess }) 
                         </FL>
                       </div>
                       <div style={{ width: 200 }}>
-                        <FL label="INR Value" gray>
+                        <FL label="Value" gray>
                           <input style={readonlyStyle} readOnly value={grandTotal ? `${currency} ${formatINR(grandTotal)}` : `${currency} 0`} />
                         </FL>
                       </div>
@@ -516,8 +516,8 @@ export default function CreateQuoteModal({ open, onClose, enquiry, onSuccess }) 
                                   <td style={tdS}>{item.hsn_snapshot || '—'}</td>
                                   <td style={tdS}>{item.quantity}</td>
                                   <td style={tdS}>{item.unit_snapshot}</td>
-                                  <td style={tdS}>₹{formatINR(item.unit_price)}</td>
-                                  <td style={tdS}>₹{formatINR(item.line_total)}</td>
+                                  <td style={tdS}>{currency === 'INR' ? '₹' : currency}{formatINR(item.unit_price)}</td>
+                                  <td style={tdS}>{currency === 'INR' ? '₹' : currency}{formatINR(item.line_total)}</td>
                                   <td style={tdS}>{item.tax_group_code}</td>
                                   <td style={{ padding: '8px 10px' }}>
                                     <button 
