@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import banner from '../../assets/dashboard-banner.png'
+import { printOAReport } from '../../components/PrintOAReport'
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -139,6 +140,16 @@ export default function OAList({ basePath = '/employee/order-acknowledgements' }
   // All rows are OA records now — always navigate to /{id}
   const handleRowClick = row => navigate(`${basePath}/${row.id}`)
 
+
+  const handlePrint = () => {
+    printOAReport(activeRows, view, counts)
+  }
+
+  const handlePDFDownload = () => {
+    // You can also create a PDF export similar to Enquiries if needed
+    printOAReport(activeRows, view, counts) // Reuse print for now
+  }
+
   const handleExport = () => {
     const headers = ['OA Number', 'Quotation Number', 'Date', 'Customer Name', 'Contact', 'Location', 'Amount', 'Status']
     const rows = activeRows.map(oa => [
@@ -234,7 +245,9 @@ export default function OAList({ basePath = '/employee/order-acknowledgements' }
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <ViewToggle active={view} onChange={v => { setView(v); setPage(1) }} counts={counts} />
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => window.print()} style={outlineBtn}><Icon d={ic.print} size={14} color="#6b7280" /> Print</button>
+            <button onClick={handlePrint} style={outlineBtn}>
+              <Icon d={ic.print} size={14} color="#6b7280" /> Print / PDF
+            </button>
             <button onClick={handleExport}         style={outlineBtn}><Icon d={ic.export} size={14} color="#6b7280" /> Export</button>
           </div>
         </div>

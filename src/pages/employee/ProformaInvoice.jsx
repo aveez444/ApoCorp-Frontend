@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import banner from '../../assets/dashboard-banner.png'
+import { printProformaReport } from '../../components/PrintProformaReport'
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -281,7 +282,12 @@ export default function ProformaList({ basePath = '/employee/proforma-invoices' 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <ViewToggle active={view} onChange={v => { setView(v); setPage(1) }} counts={counts} />
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => window.print()} style={outlineBtn}><Icon d={ic.print} size={14} color="#6b7280" /> Print</button>
+            <button 
+              onClick={() => printProformaReport(activeRows, view, counts)} 
+              style={outlineBtn}
+            >
+              <Icon d={ic.print} size={14} color="#6b7280" /> Print
+            </button>
             <button onClick={handleExport}         style={outlineBtn}><Icon d={ic.export} size={14} color="#6b7280" /> Export</button>
           </div>
         </div>

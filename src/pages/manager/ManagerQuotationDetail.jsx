@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import EditQuoteModal from '../../components/modals/EditQuoteModal'
+import { printQuotationDetail } from '../../components/PrintQuotationDetail'
 
 // ── Status colors ─────────────────────────────────────────────────────────────
 const REVIEW_COLORS = {
@@ -296,8 +297,9 @@ export default function ManagerQuotationDetail() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => navigate('/manager/quotations')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}>
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+             <button onClick={() => printQuotationDetail(quotation)} style={outlineBtn}>
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print
               </button>
               <span style={{ fontSize: '20px', fontWeight: 800, color: '#122C41', fontFamily: 'Lato, sans-serif' }}>{quotation.quotation_number}</span>
               <StatusBadge status={isExternal ? quotation.client_status : quotation.review_status} external={isExternal} />

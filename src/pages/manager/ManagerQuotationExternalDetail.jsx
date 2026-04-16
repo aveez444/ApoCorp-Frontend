@@ -6,6 +6,7 @@ import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import EditQuoteModal from '../../components/modals/EditQuoteModal'
 import QuotationPDFPanel from '../../components/QuotationPDFPanel'
+import { printQuotationDetail } from '../../components/PrintQuotationDetail'
 
 // ─── Status maps ──────────────────────────────────────────────────────────────
 const REVIEW_COLORS = {
@@ -648,7 +649,7 @@ export default function ManagerQuotationExternalDetail() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => window.print()} style={outlineBtn}>
+            <button onClick={() => printQuotationDetail(quotation)} style={outlineBtn}>
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
               Print
             </button>

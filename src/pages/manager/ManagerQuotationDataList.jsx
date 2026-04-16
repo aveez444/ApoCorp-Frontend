@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axios'
+import { printQuotationReport } from '../../components/PrintQuotationReport'
 
 const PRIMARY = '#122C41'
 const BORDER = '#e2e8f0'
@@ -220,6 +221,19 @@ export default function ManagerQuotationDataList() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
+      // Calculate stats for filtered quotations
+    const filteredStats = {
+      under_review: filtered.filter(q => !isExternal && q.review_status === 'UNDER_REVIEW').length,
+      approved: filtered.filter(q => !isExternal && q.review_status === 'APPROVED').length,
+      rejected: filtered.filter(q => !isExternal && q.review_status === 'REJECTED').length,
+      accepted: filtered.filter(q => isExternal && q.client_status === 'ACCEPTED').length,
+      negotiation: filtered.filter(q => isExternal && q.client_status === 'UNDER_NEGOTIATION').length,
+    }
+
+    const handlePrint = () => {
+    printQuotationReport(filtered, filteredStats, isExternal)
+    }
+
     const handleExport = () => {
         const headers = isExternal
           ? ['Quotation No.', 'Enquiry No.', 'Quotation Date', 'Entity Name', 'Contact', 'Location', 'Amount', 'Status']
@@ -329,13 +343,13 @@ export default function ManagerQuotationDataList() {
             </span>
           </div>
           
-          <button onClick={() => window.print()} style={outlineBtn}>
+          <button onClick={handlePrint} style={outlineBtn}>
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <polyline points="6 9 6 2 18 2 18 9"/>
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
               <rect x="6" y="14" width="12" height="8"/>
             </svg>
-            Print
+            Print / PDF
           </button>
           <button onClick={handleExport} style={outlineBtn}>
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

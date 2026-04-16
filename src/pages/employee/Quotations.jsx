@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import banner from '../../assets/dashboard-banner.png'
+import { printQuotationReport } from '../../components/PrintQuotationReport'
 
 const PRIMARY = '#122C41'
 const BORDER  = '#e2e8f0'
@@ -185,6 +186,11 @@ export default function Quotations() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
+
+  const handlePrint = () => {
+    // Use the filtered quotations data and stats
+    printQuotationReport(filtered, stats, isExternal)
+  }
 
   const handleExport = () => {
     const headers = ['Quotation No.', 'Date', 'Entity Name', 'Contact', 'Location', 'Amount', 'Remark', 'Status']
@@ -393,12 +399,12 @@ export default function Quotations() {
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn-outline" onClick={() => window.print()}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
-              </svg>
-              Print
-            </button>
+         <button className="btn-outline" onClick={handlePrint}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
+            </svg>
+            Print / PDF
+          </button>
             <button className="btn-outline" onClick={handleExport}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" />

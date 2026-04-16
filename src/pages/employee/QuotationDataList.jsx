@@ -1,6 +1,8 @@
+// src/components/QuotationDataList.jsx
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axios'
+import { printQuotationReport } from '../../components/PrintQuotationReport'
 
 // ─── Customer data helper ─────────────────────────────────────────────────────
 const cd = q => q.customer_detail || {}
@@ -69,6 +71,7 @@ export default function QuotationDataList() {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
   const [quotations, setQuotations]         = useState([])
+  const [stats, setStats]                   = useState({ under_review: 0, approved: 0, rejected: 0, accepted: 0, negotiation: 0 })
   const [loading, setLoading]               = useState(true)
   const [isExternal, setIsExternal]         = useState(searchParams.get('tab') === 'external')
   const [search, setSearch]                 = useState('')
@@ -80,8 +83,14 @@ export default function QuotationDataList() {
 
   const fetchData = useCallback(() => {
     setLoading(true)
-    api.get('/quotations/')
-      .then(r => setQuotations(r.data?.results || r.data || []))
+    Promise.all([
+      api.get('/quotations/'),
+      api.get('/quotations/dashboard_stats/')
+    ])
+      .then(([qRes, sRes]) => {
+        setQuotations(qRes.data?.results || qRes.data || [])
+        setStats(sRes.data || {})
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -91,8 +100,6 @@ export default function QuotationDataList() {
   const byVisibility = quotations.filter(q =>
     isExternal ? q.visibility === 'EXTERNAL' : q.visibility === 'INTERNAL'
   )
-
-// In QuotationDataList.jsx, replace the filtered constant (around line 105-120) with:
 
   const filtered = byVisibility
     .filter(q => {
@@ -117,7 +124,21 @@ export default function QuotationDataList() {
       if (!b.created_at) return -1
       return new Date(b.created_at) - new Date(a.created_at)
     })
-  
+
+  // Calculate stats for filtered quotations
+  const filteredStats = {
+    under_review: filtered.filter(q => !isExternal && q.review_status === 'UNDER_REVIEW').length,
+    approved: filtered.filter(q => !isExternal && q.review_status === 'APPROVED').length,
+    rejected: filtered.filter(q => !isExternal && q.review_status === 'REJECTED').length,
+    accepted: filtered.filter(q => isExternal && q.client_status === 'ACCEPTED').length,
+    negotiation: filtered.filter(q => isExternal && q.client_status === 'UNDER_NEGOTIATION').length,
+  }
+
+  // Print handler
+  const handlePrint = () => {
+    printQuotationReport(filtered, filteredStats, isExternal)
+  }
+
   const handleExport = () => {
     const headers = ['Quotation No.', 'Date', 'Due Date', 'Target Sub.', 'Entity Name', 'Contact', 'Location', 'Amount', 'Remark', 'Status']
     const rows = filtered.map(q => {
@@ -139,21 +160,35 @@ export default function QuotationDataList() {
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `quotations_${isExternal ? 'external' : 'internal'}.csv`; a.click()
+    a.download = `quotations_${isExternal ? 'external' : 'internal'}_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
   }
 
   const internalOpts = [['', 'All'], ['UNDER_REVIEW', 'Under Review'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected']]
   const externalOpts = [['', 'All'], ['DRAFT', 'Draft'], ['SENT', 'Sent'], ['UNDER_NEGOTIATION', 'Under Negotiation'], ['ACCEPTED', 'Accepted'], ['REJECTED_BY_CLIENT', 'Rejected by Client']]
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearch('')
+    setLocationFilter('')
+    setContactFilter('')
+    setDateFilter('')
+    setStatusFilter('')
+  }
 
   return (
     <div style={{ fontFamily: 'Lato, sans-serif', padding: '20px 0' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .q-row:hover { background: #EEF3FF !important; cursor: pointer; }
+        @media print {
+          .no-print { display: none !important; }
+          body { padding: 0; margin: 0; }
+        }
       `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={() => navigate('/employee/quotations')}
@@ -181,19 +216,27 @@ export default function QuotationDataList() {
             </div>
             <span style={{ fontSize: '12px', fontWeight: 600, color: isExternal ? '#122C41' : '#9ca3af', fontFamily: 'Lato, sans-serif' }}>External</span>
           </div>
-          <button onClick={() => window.print()} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print
+          <button onClick={handlePrint} style={outlineBtn}>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <polyline points="6 9 6 2 18 2 18 9"/>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            Print / PDF
           </button>
           <button onClick={handleExport} style={outlineBtn}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="8" y1="13" x2="16" y2="13"/>
+            </svg>
             Export to Excel
           </button>
         </div>
       </div>
 
-      {/* Search + filter row */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+      {/* Search + filter row - Hidden when printing */}
+      <div className="no-print" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
         <FloatInput label="Search Quotation" value={search} onChange={setSearch} placeholder="Enter Customer Name / Quotation Number" />
         <FloatInput label="Location" value={locationFilter} onChange={setLocationFilter} placeholder="Enter Location" />
         <FloatInput label="Search by Contact Number" value={contactFilter} onChange={setContactFilter} placeholder="Enter Contact Number" />
@@ -209,10 +252,20 @@ export default function QuotationDataList() {
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
           Filters
         </button>
+        {(search || locationFilter || contactFilter || dateFilter || statusFilter) && (
+          <button onClick={clearAllFilters} style={{ ...outlineBtn, color: '#dc2626', borderColor: '#fca5a5' }}>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Clear All
+          </button>
+        )}
       </div>
 
+      {/* Filter panel - Hidden when printing */}
       {showFilters && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', fontFamily: 'Lato, sans-serif' }}>Status:</span>
           {(isExternal ? externalOpts : internalOpts).map(([val, label]) => (
             <button
@@ -225,6 +278,48 @@ export default function QuotationDataList() {
           ))}
         </div>
       )}
+
+      {/* Active filters display - Hidden when printing */}
+      {(search || locationFilter || contactFilter || dateFilter || statusFilter) && (
+        <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {search && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe' }}>
+              Search: {search}
+              <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+          {locationFilter && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe' }}>
+              Location: {locationFilter}
+              <button onClick={() => setLocationFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+          {contactFilter && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe' }}>
+              Contact: {contactFilter}
+              <button onClick={() => setContactFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+          {dateFilter && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe' }}>
+              Date: {dateFilter}
+              <button onClick={() => setDateFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+          {statusFilter && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: '1px solid #bfdbfe' }}>
+              Status: {(isExternal ? externalOpts : internalOpts).find(([val]) => val === statusFilter)?.[1] || statusFilter}
+              <button onClick={() => setStatusFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Results count - Hidden when printing */}
+      <div className="no-print" style={{ marginBottom: 12, fontSize: 13, color: '#6b7280', fontFamily: 'Lato, sans-serif' }}>
+        Showing {filtered.length} {isExternal ? 'external' : 'internal'} quotations
+        {filtered.length !== byVisibility.length && ` (filtered from ${byVisibility.length} total)`}
+      </div>
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E5E5', overflow: 'hidden' }}>
@@ -244,27 +339,27 @@ export default function QuotationDataList() {
                     <div style={{ width: 16, height: 16, border: '2px solid #e2e8f0', borderTopColor: '#122C41', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
                     Loading…
                   </div>
-                </td></tr>
+                 </td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} style={{ padding: '52px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', fontFamily: 'Lato, sans-serif' }}>
                   No {isExternal ? 'external' : 'internal'} quotations found.
-                </td></tr>
+                 </td></tr>
               ) : filtered.map((q, i) => {
                 const customer = cd(q)
                 const poc      = customer.pocs?.find(p => p.is_primary) || customer.pocs?.[0] || {}
                 const phone    = poc.phone || customer.telephone_primary || ''
                 const email    = poc.email || customer.email || ''
                 const loc      = [customer.city, customer.state, customer.country].filter(Boolean).join(', ')
-                // due_date and target_submission_date come from the enquiry side
-                const enqData  = q.enquiry_number ? q : {}
                 const path     = isExternal ? `/employee/quotations/${q.id}/external` : `/employee/quotations/${q.id}`
                 return (
                   <tr key={q.id} className="q-row" onClick={() => navigate(path)} style={{ background: i % 2 === 0 ? '#FAF9F9' : '#fff' }}>
-                  <td style={{ ...tdStyle, color: '#122C41', fontWeight: 700 }}>{q.quotation_number}</td>
-                  <td style={tdStyle}>{q.enquiry_number || '—'}</td>
-                  <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
-                    <td style={tdStyle}><ContactCell phone={phone} email={email} name={customer.company_name} /></td>
+                    <td style={{ ...tdStyle, color: '#122C41', fontWeight: 700 }}>{q.quotation_number}</td>
+                    <td style={tdStyle}>{q.enquiry_number || '—'}</td>
+                    <td style={tdStyle}>{q.created_at?.slice(0, 10) || '—'}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{customer.company_name || '—'}</td>
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                      <ContactCell phone={phone} email={email} name={customer.company_name} />
+                    </td>
                     <td style={tdStyle}>{loc || '—'}</td>
                     <td style={tdStyle}>{q.grand_total ? `₹${Number(q.grand_total).toLocaleString('en-IN')}` : '—'}</td>
                     <td style={tdStyle}>{q.manager_remark || 'NIL'}</td>

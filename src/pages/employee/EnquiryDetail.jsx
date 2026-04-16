@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axios'
 import Toast from '../../components/Toast'
 import CreateQuoteModal from '../../components/modals/CreateQuoteModal'
+import { printEnquiryDetail } from '../../components/PrintEnquiryDetail'
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -531,7 +532,7 @@ export default function EnquiryDetail({ basePath = '/employee/enquiries' }) {
           <button onClick={() => setEditOpen(true)} style={outlineBtn}>
             <Icon d={ic.edit} size={14} color={PRIMARY} /> Edit
           </button>
-          <button onClick={() => window.print()} style={outlineBtn}>
+          <button onClick={() => printEnquiryDetail(enquiry)} style={outlineBtn}>
             <Icon d={ic.print} size={14} color={PRIMARY} /> Print
           </button>
           

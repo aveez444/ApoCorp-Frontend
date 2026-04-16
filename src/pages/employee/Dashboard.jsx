@@ -97,7 +97,12 @@ export default function Dashboard() {
               </thead>
               <tbody className="table-body">
                 {data?.recent_enquiries?.length > 0 ? (
-                  data.recent_enquiries.map((e, i) => (
+                  // data.recent_enquiries.map((e, i) => (
+                    // data.recent_enquiries.slice(0, 5).map((e, i) => (
+                      data.recent_enquiries
+                      .filter(e => e.status?.toLowerCase() === "new")
+                      .slice(0, 5)
+                      .map((e, i) => (
                     <tr key={i} style={styles.tr}>
                       <td style={{ fontWeight: 600, color: '#2563EB' }}>{e.enquiry_number || "—"}</td>
                       <td>{e.customer_name || "—"}</td>
@@ -181,7 +186,8 @@ const styles = {
     cursor: "pointer",
     fontWeight: 600,
     fontSize: "14px",
-    transition: "all 0.2s"
+    transition: "all 0.2s",
+    marginBottom:"38px"
   },
   statCardCustom: {
     background: "#fff",

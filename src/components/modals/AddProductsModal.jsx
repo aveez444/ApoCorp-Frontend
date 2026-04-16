@@ -513,33 +513,7 @@ function ProductSearchPanel({ addedProductIds, onAdd, currency = 'INR' }) {
           }}>
             Product Master
           </div>
-          {/* ── Add New Product button ── */}
-          <button
-            onClick={() => navigate('/product')}
-            title="Go to product master to add a new product"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: 'none', border: `1.5px dashed ${ACCENT}`,
-              borderRadius: 7, padding: '4px 10px',
-              fontSize: '11px', fontWeight: 600, color: ACCENT,
-              fontFamily: FONT, cursor: 'pointer',
-              transition: 'all 0.18s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = '#eff6ff'
-              e.currentTarget.style.borderStyle = 'solid'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'none'
-              e.currentTarget.style.borderStyle = 'dashed'
-            }}
-          >
-            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke={ACCENT} strokeWidth={2.5}>
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add New Product
-          </button>
+
         </div>
 
         {/* Search input */}

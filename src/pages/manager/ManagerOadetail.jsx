@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import api from '../../api/axios'
 import AddProductsModal from '../../components/modals/AddProductsModal'
+import { printOADetail } from '../../components/PrintOADetail'
 
 const PRIMARY = '#122C41'
 const ACCENT  = '#1e88e5'
@@ -694,8 +695,11 @@ export default function OADetail({ basePath = '/employee/order-acknowledgements'
             </span>
           )}
         </div>
-        <button onClick={() => window.print()} style={{ display:'flex', alignItems:'center', gap:7, padding:'8px 18px', borderRadius:8, border:'1.5px solid #e2e8f0', background:'#fff', color:PRIMARY, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:FONT }}>
-          <Icon d={ic.print} size={14} color={PRIMARY} /> Print OA
+        <button 
+          onClick={() => printOADetail(oa)} 
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', color: PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}
+          >
+         <Icon d={ic.print} size={14} color={PRIMARY} /> Print OA
         </button>
       </div>
 
