@@ -61,21 +61,32 @@ import ManagerVisitReportDetail from './pages/manager/Managervisitreportdetail'
 
 // Shared imports - LOGISTICS MODULE (same for both roles)
 import CustomReports from './pages/shared/CustomReports'
-// import LogisticsDashboard from './pages/shared/logistics/LogisticsDashboard'
-import PendingInvoices from './pages/shared/logistics/PendingInvoices'
+import PendingInvoices from './pages/shared/logistics/Pendinginvoices'
+import CreateDispatch from './pages/shared/logistics/CreateDispatch'
 import BackOrders from './pages/shared/logistics/BackOrders'
 import BackOrderDetail from './pages/shared/logistics/BackOrderDetail'
-import CreateDispatch from './pages/shared/logistics/CreateDispatch'
-
-import Invoices from './pages/shared/logistics/Invoices'
-import CreateInvoice from './pages/shared/logistics/CreateInvoice'
 import InvoiceDetail from './pages/shared/logistics/InvoiceDetail'
 import OrderTracking from './pages/shared/logistics/OrderTracking'
 import LogisticsOrderDetail from './pages/shared/logistics/LogisticsOrderDetail'
+import LogisticsDashboard from './pages/shared/logistics/LogisticsDashboard'
+// import LogisticsDashboard from './pages/shared/logistics/LogisticsDashboard'
+// import PendingInvoices from './pages/shared/logistics/PendingInvoices'
+// import BackOrders from './pages/shared/logistics/BackOrders'
+// import BackOrderDetail from './pages/shared/logistics/BackOrderDetail'
+// import CreateDispatch from './pages/shared/logistics/CreateDispatch'
 
+import Invoices from './pages/shared/logistics/Invoices'
+import CreateInvoice from './pages/shared/logistics/CreateInvoice'
 import OrderLogisticsList from './pages/shared/logistics/OrderLogisticsList'
 import OrderLogisticsDetail from './pages/shared/logistics/OrderLogisticsDetail'
-import LogisticsDashboard from './pages/shared/logistics/LogisticsDashboard'
+
+// import InvoiceDetail from './pages/shared/logistics/InvoiceDetail'
+// import OrderTracking from './pages/shared/logistics/OrderTracking'
+// import LogisticsOrderDetail from './pages/shared/logistics/LogisticsOrderDetail'
+
+// import OrderLogisticsList from './pages/shared/logistics/OrderLogisticsList'
+// import OrderLogisticsDetail from './pages/shared/logistics/OrderLogisticsDetail'
+// import LogisticsDashboard from './pages/shared/logistics/LogisticsDashboard'
 
 
 function ProtectedRoute({ children, allowedRole }) {
@@ -199,7 +210,7 @@ const router = createBrowserRouter([
       { path: 'reports/custom', element: <CustomReports role="manager" /> },
 
       // Logistics routes (shared - same component for both roles)
-      // { path: 'logistics/dashboard', element: <LogisticsDashboard role="manager" /> },
+  
       { path: 'logistics/pending-invoices', element: <PendingInvoices role="manager" /> },
       { path: 'logistics/back-orders', element: <BackOrders role="manager" /> },
       { path: 'logistics/create-dispatch/:orderId', element: <CreateDispatch role="manager" /> },
