@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { Link } from 'react-router-dom'  // Add this import at the top
 
 const inputStyle = {
   width: '100%',
@@ -289,22 +290,23 @@ export default function Login() {
               {loading ? 'Logging in...' : 'Login'}
             </button>
 
-            <a 
-              href="#" 
-              style={{
-                fontFamily: 'Lato, sans-serif',
-                fontWeight: 400,
-                fontSize: '17px', // Reduced from 20px
-                lineHeight: '140%',
-                letterSpacing: '-0.011em',
-                textAlign: 'center',
-                color: '#122C41',
-                textDecoration: 'none',
-                width: '100%',
-              }}
-            >
-              Forgot Password?
-            </a>
+          <Link 
+            to="/forgot-password" 
+            style={{
+              fontFamily: 'Lato, sans-serif',
+              fontWeight: 400,
+              fontSize: '17px',
+              lineHeight: '140%',
+              letterSpacing: '-0.011em',
+              textAlign: 'center',
+              color: '#122C41',
+              textDecoration: 'none',
+              width: '100%',
+              display: 'inline-block',
+            }}
+          >
+            Forgot Password?
+          </Link>
           </div>
         </form>
       </div>

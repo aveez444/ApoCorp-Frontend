@@ -13,6 +13,7 @@ export const MODULE_META = {
   quotation: { color: '#f59e0b', bg: '#fffbeb', label: 'Quotations' },
   oa:        { color: '#8b5cf6', bg: '#f5f3ff', label: 'Order Acknowledgements' },
   proforma:  { color: '#ef4444', bg: '#fef2f2', label: 'Proforma Invoices' },
+  logistics: { color: '#06b6d4', bg: '#ecfeff', label: 'Logistics' },  // ← ADD THIS
 }
 
 export const TYPE_OPERATOR_MAP = {

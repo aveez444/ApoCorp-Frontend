@@ -1,5 +1,7 @@
+// axios.js
 import axios from 'axios'
 
+// Main API instance with authentication
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
 })
@@ -9,7 +11,7 @@ api.interceptors.request.use((config) => {
   const tenantId = localStorage.getItem('tenant_id')
 
   if (token) config.headers['Authorization'] = `Bearer ${token}`
-  if (tenantId) config.headers['x-tenant-id'] = tenantId
+  if (tenantId && !config.skipTenantHeader) config.headers['x-tenant-id'] = tenantId
 
   return config
 })
@@ -24,5 +26,10 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// Public API instance for endpoints that don't require authentication/tenant
+export const publicApi = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+})
 
 export default api
